@@ -6,6 +6,37 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <title>위치 전송</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    .pin-modal {
+      position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;
+      display:flex;align-items:center;justify-content:center;padding:20px;
+    }
+    .pin-modal-box {
+      background:#fff;border-radius:12px;padding:20px;max-width:320px;width:100%;text-align:center;
+    }
+    .child-pin-btn {
+      display:block;width:100%;padding:14px;margin-top:8px;
+      background:linear-gradient(135deg,#f39c12,#e67e22);
+      color:#fff;border:none;border-radius:10px;
+      font-size:15px;font-weight:700;cursor:pointer;
+    }
+    .child-pin-btn:active { transform:scale(0.97); }
+    .my-pins-list { margin-top:8px; }
+    .my-pins-list .pin-item {
+      display:flex;align-items:center;gap:8px;padding:6px 8px;
+      background:#f8f9fa;border-radius:6px;margin-bottom:4px;font-size:13px;
+    }
+    .sos-btn {
+      display:block;width:100%;padding:14px;margin-top:8px;
+      background:#e74c3c;color:#fff;border:none;border-radius:10px;
+      font-size:16px;font-weight:700;cursor:pointer;
+      animation: sos-pulse 2s infinite;
+    }
+    @keyframes sos-pulse {
+      0%,100% { box-shadow:0 0 0 0 rgba(231,76,60,0.4); }
+      50% { box-shadow:0 0 0 8px rgba(231,76,60,0); }
+    }
+  </style>
 </head>
 <body>
 <header>
@@ -41,6 +72,23 @@
     </div>
   </div>
 
+  <!-- 아이 핑 (나 여기있어) -->
+  <div class="card" id="childPinCard" style="display:none;">
+    <button class="child-pin-btn" onclick="placeChildPin()">📍 나 여기서 놀 거야!</button>
+    <div id="childPinMsg" style="display:none;margin-top:8px;text-align:center;">
+      <input id="childPinMsgInput" type="text" placeholder="메시지 (선택)" style="text-align:center;font-size:13px;">
+      <button onclick="confirmChildPin()" style="width:100%;margin-top:6px;padding:10px;background:#f39c12;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">핑 보내기</button>
+      <button onclick="cancelChildPin()" style="width:100%;margin-top:4px;padding:8px;background:#95a5a6;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;">취소</button>
+    </div>
+    <div class="my-pins-list" id="myPinsList"></div>
+  </div>
+
+  <!-- SOS 버튼 -->
+  <div class="card" id="sosCard" style="display:none;text-align:center;">
+    <button class="sos-btn" onclick="sendSOS()">🆘 긴급 SOS</button>
+    <p class="muted" style="margin-top:4px;">부모님에게 긴급 알림을 보냅니다</p>
+  </div>
+
   <div class="card" style="display:none;" id="keepOpenCard">
     <p style="text-align:center;font-size:13px;color:#e67e22;line-height:1.6;">
       <b>이 페이지를 열어두세요!</b><br>
@@ -48,13 +96,33 @@
     </p>
   </div>
 
-  <!-- 알람 울릴 때 표시 -->
+  <!-- 거점 목록 -->
+  <div class="card" id="pinLegendCard" style="display:none;">
+    <h2>📌 거점</h2>
+    <div id="pinLegendList"></div>
+  </div>
+
+  <!-- 알람 -->
   <div class="card" id="alarmCard" style="display:none;">
     <div style="text-align:center;padding:16px;">
       <div style="font-size:48px;animation:pulse-ring 0.5s infinite alternate;">🔔</div>
       <div style="font-size:18px;font-weight:700;color:#e74c3c;margin:8px 0;">알람이 울리고 있습니다!</div>
       <button onclick="stopAlarm()" style="margin-top:8px;padding:12px 32px;background:#e74c3c;color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;">알람 끄기</button>
     </div>
+  </div>
+</div>
+
+<!-- 거점 상세 모달 -->
+<div class="pin-modal" id="pinModal" style="display:none;" onclick="if(event.target===this)closePinModal()">
+  <div class="pin-modal-box">
+    <div style="font-size:36px;" id="pmEmoji"></div>
+    <h3 id="pmName" style="margin:8px 0 4px;"></h3>
+    <div id="pmCategory" class="muted" style="margin-bottom:12px;"></div>
+    <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
+      <button onclick="naviToPinWalk()" style="background:#27ae60;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:14px;cursor:pointer;">🚶 도보</button>
+      <button onclick="naviToPinCar()" style="background:#3498db;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:14px;cursor:pointer;">🚗 차량</button>
+    </div>
+    <button onclick="closePinModal()" style="margin-top:12px;background:#95a5a6;color:#fff;border:none;padding:8px 20px;border-radius:6px;font-size:13px;cursor:pointer;">닫기</button>
   </div>
 </div>
 
@@ -67,13 +135,16 @@
 var childId = null;
 var matchedChild = null;
 var map = null, myMarker = null;
+var pinMarkers = [];
 var watchId = null;
 var lastWriteTime = 0;
 var gpsCount = 0;
+var currentLat = null, currentLng = null;
+var selectedPinData = null;
+var pendingChildPin = false;
 
 initFirebaseSync();
 
-// 저장된 연락처로 자동 시작
 onDataReady(function() {
   var saved = localStorage.getItem('kids_phone');
   if (saved) {
@@ -123,7 +194,11 @@ function startTracking(child) {
   document.getElementById('childName').textContent = child.name;
   document.title = child.name + ' - 위치 전송';
 
+  document.getElementById('childPinCard').style.display = '';
+  document.getElementById('sosCard').style.display = '';
+
   startGPS(child);
+  renderMyPins();
 }
 
 function startGPS(child) {
@@ -149,6 +224,7 @@ function startGPS(child) {
       center: new kakao.maps.LatLng(35.3475, 126.4180),
       level: 5
     });
+    renderPinsOnMap();
   });
 
   var cfg = getConfig();
@@ -159,6 +235,8 @@ function startGPS(child) {
       var lat = pos.coords.latitude;
       var lng = pos.coords.longitude;
       var acc = pos.coords.accuracy;
+      currentLat = lat;
+      currentLng = lng;
 
       document.getElementById('statusText').textContent = '위치 전송 중';
       document.getElementById('gpsInfo').textContent =
@@ -231,7 +309,179 @@ function startGPS(child) {
   listenAlarm();
 }
 
-// ──── 무음에서도 울리는 알람 (Web Audio API) ────
+// ──── 거점 표시 ────
+window.onDataChanged = function() {
+  if (map && childId) renderPinsOnMap();
+  if (childId) renderMyPins();
+};
+
+function renderPinsOnMap() {
+  pinMarkers.forEach(function(m) { m.setMap(null); });
+  pinMarkers = [];
+  var pins = getPins();
+  pins.forEach(function(pin) {
+    var cat = PIN_CATEGORIES.find(function(c) { return c.value === pin.category; }) || PIN_CATEGORIES[4];
+    var color = pin.color || cat.color;
+    var emoji = pin.emoji || cat.emoji;
+
+    var marker = new kakao.maps.Marker({
+      position: new kakao.maps.LatLng(pin.lat, pin.lng),
+      map: map, image: pinMarkerImage(emoji, color), zIndex: 3
+    });
+    kakao.maps.event.addListener(marker, 'click', (function(p, c) {
+      return function() { showPinModal(p, c); };
+    })(pin, cat));
+    pinMarkers.push(marker);
+  });
+
+  var childPins = getChildPins();
+  childPins.forEach(function(cp) {
+    if (cp.childId === childId) return;
+    var c = getChildren().find(function(x) { return x.id === cp.childId; });
+    var emoji = c ? (c.emoji || '📍') : '📍';
+    var marker = new kakao.maps.Marker({
+      position: new kakao.maps.LatLng(cp.lat, cp.lng),
+      map: map, image: pinMarkerImage(emoji, '#f39c12'), zIndex: 2
+    });
+    var iw = new kakao.maps.InfoWindow({
+      content: '<div style="padding:8px;font-size:12px;min-width:120px;">'
+        + '<b>' + emoji + ' ' + (c ? c.name : '?') + '</b>'
+        + (cp.message ? '<div style="margin-top:4px;">' + cp.message + '</div>' : '')
+        + '<div class="muted">' + timeAgo(cp.timestamp) + '</div></div>',
+      removable: true
+    });
+    kakao.maps.event.addListener(marker, 'click', (function(m, i) {
+      return function() { toggleInfoWindow(i, m, map); };
+    })(marker, iw));
+    pinMarkers.push(marker);
+  });
+
+  renderPinLegend(pins);
+}
+
+function renderPinLegend(pins) {
+  if (!pins.length) { document.getElementById('pinLegendCard').style.display = 'none'; return; }
+  document.getElementById('pinLegendCard').style.display = '';
+  var html = '';
+  pins.forEach(function(pin) {
+    var cat = PIN_CATEGORIES.find(function(c) { return c.value === pin.category; }) || PIN_CATEGORIES[4];
+    html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;cursor:pointer;" onclick="showPinModal2(\'' + pin.id + '\')">'
+      + '<span style="font-size:18px;">' + (pin.emoji || cat.emoji) + '</span>'
+      + '<span style="flex:1;">' + pin.name + '</span>'
+      + '<span class="muted">' + cat.label + '</span></div>';
+  });
+  document.getElementById('pinLegendList').innerHTML = html;
+}
+
+// ──── 거점 모달+네비 ────
+function showPinModal(pin, cat) {
+  selectedPinData = pin;
+  document.getElementById('pmEmoji').textContent = pin.emoji || cat.emoji;
+  document.getElementById('pmName').textContent = pin.name;
+  document.getElementById('pmCategory').textContent = cat.label;
+  document.getElementById('pinModal').style.display = '';
+}
+function showPinModal2(pinId) {
+  var pin = getPins().find(function(p) { return p.id === pinId; });
+  if (!pin) return;
+  var cat = PIN_CATEGORIES.find(function(c) { return c.value === pin.category; }) || PIN_CATEGORIES[4];
+  showPinModal(pin, cat);
+}
+function closePinModal() { document.getElementById('pinModal').style.display = 'none'; selectedPinData = null; }
+function naviToPinWalk() {
+  if (!selectedPinData) return;
+  closePinModal();
+  openNaviWalk(selectedPinData.name, selectedPinData.lat, selectedPinData.lng);
+}
+function naviToPinCar() {
+  if (!selectedPinData) return;
+  closePinModal();
+  openNaviCar(selectedPinData.name, selectedPinData.lat, selectedPinData.lng);
+}
+
+function openNaviWalk(name, lat, lng) {
+  var ua = navigator.userAgent;
+  if (/iPhone|iPad|Android/.test(ua)) {
+    location.href = 'kakaomap://route?ep=' + lat + ',' + lng + '&by=FOOT';
+  } else {
+    window.open('https://map.kakao.com/link/to/' + encodeURIComponent(name) + ',' + lat + ',' + lng);
+  }
+}
+function openNaviCar(name, lat, lng) {
+  var ua = navigator.userAgent;
+  if (/iPhone|iPad|Android/.test(ua)) {
+    location.href = 'kakaomap://route?ep=' + lat + ',' + lng + '&by=CAR';
+  } else {
+    window.open('https://map.kakao.com/link/to/' + encodeURIComponent(name) + ',' + lat + ',' + lng);
+  }
+}
+
+// ──── 아이 핑 ────
+function placeChildPin() {
+  if (!currentLat || !currentLng) { alert('GPS 위치를 아직 받지 못했습니다.'); return; }
+  pendingChildPin = true;
+  document.getElementById('childPinMsg').style.display = '';
+  document.getElementById('childPinMsgInput').value = '';
+  document.getElementById('childPinMsgInput').focus();
+}
+
+function confirmChildPin() {
+  if (!currentLat || !childId) return;
+  var msg = document.getElementById('childPinMsgInput').value.trim();
+  var pinId = uid();
+  fbDb.ref('/childPins/' + pinId).set({
+    childId: childId,
+    lat: currentLat,
+    lng: currentLng,
+    message: msg || '나 여기있어!',
+    timestamp: Date.now()
+  });
+  document.getElementById('childPinMsg').style.display = 'none';
+  pendingChildPin = false;
+  renderMyPins();
+}
+
+function cancelChildPin() {
+  document.getElementById('childPinMsg').style.display = 'none';
+  pendingChildPin = false;
+}
+
+function renderMyPins() {
+  var all = getChildPins();
+  var mine = all.filter(function(p) { return p.childId === childId; });
+  var list = document.getElementById('myPinsList');
+  if (!mine.length) { list.innerHTML = ''; return; }
+  var html = '<div style="margin-top:8px;font-size:12px;color:#888;margin-bottom:4px;">내 핑</div>';
+  mine.forEach(function(p) {
+    html += '<div class="pin-item">'
+      + '<span>📍</span>'
+      + '<span style="flex:1;">' + (p.message || '') + '</span>'
+      + '<span class="muted" style="font-size:11px;">' + timeAgo(p.timestamp) + '</span>'
+      + '<button onclick="removeChildPin(\'' + p.id + '\')" style="background:#e74c3c;color:#fff;border:none;padding:2px 6px;border-radius:4px;font-size:11px;cursor:pointer;">✕</button>'
+      + '</div>';
+  });
+  list.innerHTML = html;
+}
+
+function removeChildPin(pinId) {
+  fbDb.ref('/childPins/' + pinId).remove();
+}
+
+// ──── SOS ────
+function sendSOS() {
+  if (!childId) return;
+  if (!confirm('긴급 SOS를 부모님에게 보낼까요?')) return;
+  fbDb.ref('/alerts/' + childId).set({
+    ring: true,
+    sos: true,
+    timestamp: Date.now(),
+    lat: currentLat,
+    lng: currentLng
+  });
+  alert('SOS 신호를 보냈습니다!');
+}
+
+// ──── 알람 ────
 var alarmCtx = null;
 var alarmNodes = [];
 var alarmInterval = null;
@@ -239,7 +489,7 @@ var alarmInterval = null;
 function listenAlarm() {
   fbDb.ref('/alerts/' + childId).on('value', function(snap) {
     var data = snap.val();
-    if (data && data.ring) {
+    if (data && data.ring && !data.sos) {
       playAlarm();
     }
   });

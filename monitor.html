@@ -29,6 +29,20 @@
     .pin-modal-box {
       background:#fff;border-radius:12px;padding:20px;max-width:320px;width:100%;text-align:center;
     }
+    .share-loc-btn {
+      display:block;width:100%;padding:12px;margin-top:0;
+      border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;
+    }
+    .share-loc-btn.active { background:#e74c3c;color:#fff; }
+    .share-loc-btn.inactive { background:linear-gradient(135deg,#27ae60,#2ecc71);color:#fff; }
+    .sos-alert {
+      background:#e74c3c;color:#fff;padding:12px;border-radius:8px;
+      text-align:center;margin-bottom:8px;animation:pulse-ring 0.5s infinite alternate;
+    }
+    .child-pin-badge {
+      display:inline-block;background:#f39c12;color:#fff;padding:2px 6px;
+      border-radius:10px;font-size:10px;font-weight:600;margin-left:4px;
+    }
   </style>
 </head>
 <body>
@@ -43,6 +57,9 @@
 </header>
 
 <div class="container" style="max-width:1000px;">
+  <!-- SOS 알림 영역 -->
+  <div id="sosAlerts"></div>
+
   <div class="card">
     <div class="map-wrap">
       <div id="map" class="map" style="height:500px;"></div>
@@ -57,6 +74,20 @@
       </div>
       <div class="map-ctrl map-ctrl-bottom">
         <button class="map-btn" style="width:auto;padding:0 12px;font-size:13px;font-weight:600;" onclick="fitAll()">전체 보기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 부모 위치 공유 -->
+  <div class="card" id="parentShareCard" style="display:none;">
+    <div class="flex-between" style="margin-bottom:8px;">
+      <h2>📡 내 위치 공유</h2>
+    </div>
+    <button class="share-loc-btn inactive" id="shareLocBtn" onclick="toggleParentShare()">📍 내 위치 공유 시작</button>
+    <div id="parentShareStatus" style="display:none;margin-top:8px;text-align:center;">
+      <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+        <span class="pulse"></span>
+        <span style="font-size:13px;color:#27ae60;">위치 공유 중</span>
       </div>
     </div>
   </div>
@@ -95,6 +126,12 @@
     <div id="emptyMsg" class="empty" style="display:none;">등록된 자녀가 없습니다.</div>
   </div>
 
+  <!-- 아이 핑 목록 -->
+  <div class="card" id="childPinsCard" style="display:none;">
+    <h2>📍 아이들 핑</h2>
+    <div id="childPinsList"></div>
+  </div>
+
   <div class="card" id="pinLegend" style="display:none;">
     <h2>거점 목록</h2>
     <div id="pinList"></div>
@@ -125,6 +162,8 @@ var map = null;
 var childMarkers = {};
 var childOverlays = {};
 var pinMarkers = [];
+var childPinMarkers = [];
+var parentLocMarkers = {};
 var authenticated = false;
 var loginMode = null;
 var currentParentId = null;
@@ -132,6 +171,8 @@ var visibleChildIds = null;
 var selectedPinData = null;
 var distanceLogs = {};
 var prevLocations = {};
+var parentShareActive = false;
+var parentWatchId = null;
 
 initFirebaseSync();
 onDataReady(function() { showLoginGate(); });
@@ -144,11 +185,16 @@ function initMap() {
   setInterval(function() { updateList(); trackDistances(); }, 5000);
 }
 
-window.onDataChanged = function() { if (authenticated && map) render(); };
+window.onDataChanged = function() {
+  if (authenticated && map) render();
+  checkSOS();
+};
 
 function render() {
   renderChildren();
   renderPins();
+  renderChildPins();
+  renderParentLocations();
   updateList();
   document.getElementById('lastRefresh').textContent = new Date().toLocaleTimeString('ko-KR');
 }
@@ -338,10 +384,202 @@ function naviToPinCar() {
   openNaviCar(selectedPinData.name, selectedPinData.lat, selectedPinData.lng);
 }
 
+// ──── 아이 핑 (childPins) ────
+function renderChildPins() {
+  childPinMarkers.forEach(function(m) { m.setMap(null); });
+  childPinMarkers = [];
+  var cPins = getChildPins();
+  var visibleIds = visibleChildIds;
+  if (visibleIds) {
+    cPins = cPins.filter(function(cp) { return visibleIds.indexOf(cp.childId) !== -1; });
+  }
+
+  if (!cPins.length) {
+    document.getElementById('childPinsCard').style.display = 'none';
+    return;
+  }
+  document.getElementById('childPinsCard').style.display = '';
+
+  var children = getChildren();
+  var listHtml = '';
+
+  cPins.forEach(function(cp) {
+    var c = children.find(function(x) { return x.id === cp.childId; });
+    var emoji = c ? (c.emoji || '📍') : '📍';
+    var name = c ? c.name : '?';
+
+    var marker = new kakao.maps.Marker({
+      position: new kakao.maps.LatLng(cp.lat, cp.lng),
+      map: map, image: pinMarkerImage(emoji, '#f39c12'), zIndex: 4
+    });
+    var iwContent = '<div style="padding:8px;font-size:12px;min-width:140px;">'
+      + '<b>' + emoji + ' ' + name + '</b>'
+      + '<div style="margin-top:4px;color:#f39c12;font-weight:600;">' + (cp.message || '') + '</div>'
+      + '<div class="muted">' + timeAgo(cp.timestamp) + '</div>'
+      + '<div style="margin-top:4px;display:flex;gap:4px;">'
+      + '<button onclick="openNaviWalk(\'' + name + '\',' + cp.lat + ',' + cp.lng + ')" style="background:#27ae60;color:#fff;border:none;padding:3px 6px;border-radius:3px;font-size:10px;cursor:pointer;">🚶</button>'
+      + '<button onclick="openNaviCar(\'' + name + '\',' + cp.lat + ',' + cp.lng + ')" style="background:#3498db;color:#fff;border:none;padding:3px 6px;border-radius:3px;font-size:10px;cursor:pointer;">🚗</button>'
+      + '</div></div>';
+    var iw = new kakao.maps.InfoWindow({ content: iwContent, removable: true });
+    kakao.maps.event.addListener(marker, 'click', (function(m, i) {
+      return function() { toggleInfoWindow(i, m, map); };
+    })(marker, iw));
+    childPinMarkers.push(marker);
+
+    listHtml += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;border-bottom:1px solid #f0f0f0;">'
+      + '<span style="font-size:16px;">' + emoji + '</span>'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div style="font-weight:600;">' + name + ' <span style="color:#f39c12;font-size:11px;">' + (cp.message || '') + '</span></div>'
+      + '<div class="muted">' + timeAgo(cp.timestamp) + '</div></div>'
+      + '<button onclick="focusPoint(' + cp.lat + ',' + cp.lng + ')" style="background:#3498db;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">보기</button>'
+      + '</div>';
+  });
+  document.getElementById('childPinsList').innerHTML = listHtml;
+}
+
+function focusPoint(lat, lng) {
+  map.setCenter(new kakao.maps.LatLng(lat, lng));
+  map.setLevel(3);
+}
+
+// ──── 부모 위치 공유 ────
+function toggleParentShare() {
+  if (parentShareActive) {
+    stopParentShare();
+  } else {
+    startParentShare();
+  }
+}
+
+function startParentShare() {
+  if (!navigator.geolocation) { alert('GPS를 지원하지 않는 브라우저입니다.'); return; }
+  if (!currentParentId && loginMode !== 'admin') return;
+  var shareId = currentParentId || 'admin';
+
+  parentShareActive = true;
+  document.getElementById('shareLocBtn').textContent = '⏹ 위치 공유 중지';
+  document.getElementById('shareLocBtn').className = 'share-loc-btn active';
+  document.getElementById('parentShareStatus').style.display = '';
+
+  parentWatchId = navigator.geolocation.watchPosition(
+    function(pos) {
+      var payload = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        accuracy: Math.round(pos.coords.accuracy),
+        timestamp: Date.now(),
+        isActive: true
+      };
+      fbDb.ref('/parentLocations/' + shareId).set(payload);
+    },
+    function(err) {
+      console.log('Parent GPS error:', err.message);
+    },
+    { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
+  );
+
+  requestWakeLock();
+
+  fbDb.ref('/parentLocations/' + shareId).onDisconnect().update({
+    isActive: false, timestamp: firebase.database.ServerValue.TIMESTAMP
+  });
+}
+
+function stopParentShare() {
+  parentShareActive = false;
+  if (parentWatchId !== null) {
+    navigator.geolocation.clearWatch(parentWatchId);
+    parentWatchId = null;
+  }
+  var shareId = currentParentId || 'admin';
+  fbDb.ref('/parentLocations/' + shareId).update({ isActive: false, timestamp: Date.now() });
+  releaseWakeLock();
+
+  document.getElementById('shareLocBtn').textContent = '📍 내 위치 공유 시작';
+  document.getElementById('shareLocBtn').className = 'share-loc-btn inactive';
+  document.getElementById('parentShareStatus').style.display = 'none';
+}
+
+function renderParentLocations() {
+  var plocs = getParentLocations();
+  var parents = getParents();
+
+  Object.keys(parentLocMarkers).forEach(function(k) {
+    parentLocMarkers[k].setMap(null);
+    delete parentLocMarkers[k];
+  });
+
+  Object.keys(plocs).forEach(function(pid) {
+    var pl = plocs[pid];
+    if (!pl || !pl.lat || !pl.isActive) return;
+    if (isStale(pl.timestamp)) return;
+
+    var parent = parents.find(function(p) { return p.id === pid; });
+    var name = parent ? parent.name : (pid === 'admin' ? '관리자' : '부모');
+
+    var marker = new kakao.maps.Marker({
+      position: new kakao.maps.LatLng(pl.lat, pl.lng),
+      map: map,
+      image: emojiMarkerImage('👤', '#8e44ad', 32),
+      zIndex: 8
+    });
+    var iw = new kakao.maps.InfoWindow({
+      content: '<div style="padding:8px;font-size:12px;min-width:100px;">'
+        + '<b>👤 ' + name + '</b>'
+        + '<div class="muted">' + timeAgo(pl.timestamp) + '</div></div>',
+      removable: true
+    });
+    kakao.maps.event.addListener(marker, 'click', (function(m, i) {
+      return function() { toggleInfoWindow(i, m, map); };
+    })(marker, iw));
+
+    var nameOvl = new kakao.maps.CustomOverlay({
+      position: new kakao.maps.LatLng(pl.lat, pl.lng),
+      content: '<div style="padding:1px 5px;background:#8e44ad;color:#fff;border-radius:8px;font-size:10px;font-weight:600;white-space:nowrap;transform:translateY(4px);">👤 ' + name + '</div>',
+      yAnchor: 0, map: map, zIndex: 7
+    });
+
+    parentLocMarkers[pid] = marker;
+    parentLocMarkers[pid + '_ovl'] = nameOvl;
+  });
+}
+
+// ──── SOS 알림 ────
+var shownSOS = {};
+function checkSOS() {
+  var children = getVisibleChildren();
+  var html = '';
+  children.forEach(function(child) {
+    var alertData = (_cache.alerts || {})[child.id];
+    if (alertData && alertData.sos && !shownSOS[child.id]) {
+      shownSOS[child.id] = true;
+      html += '<div class="sos-alert">'
+        + '<div style="font-size:28px;">🆘</div>'
+        + '<div style="font-size:16px;font-weight:700;margin:4px 0;">' + (child.emoji||'') + ' ' + child.name + ' 긴급 SOS!</div>'
+        + '<div style="font-size:12px;opacity:0.9;">' + timeAgo(alertData.timestamp) + '</div>'
+        + '<div style="margin-top:8px;display:flex;gap:6px;justify-content:center;">';
+      if (alertData.lat) {
+        html += '<button onclick="focusPoint(' + alertData.lat + ',' + alertData.lng + ')" style="background:#fff;color:#e74c3c;border:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">📍 위치 보기</button>'
+          + '<button onclick="openNaviCar(\'' + child.name + '\',' + alertData.lat + ',' + alertData.lng + ')" style="background:#fff;color:#e74c3c;border:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">🚗 네비</button>';
+      }
+      html += '<button onclick="dismissSOS(\'' + child.id + '\')" style="background:rgba(255,255,255,0.3);color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;">확인</button>'
+        + '</div></div>';
+    }
+  });
+  document.getElementById('sosAlerts').innerHTML = html;
+}
+
+function dismissSOS(childId) {
+  delete shownSOS[childId];
+  fbDb.ref('/alerts/' + childId).remove();
+  document.getElementById('sosAlerts').innerHTML = '';
+}
+
 // ──── 아이 리스트 ────
 function updateList() {
   var children = getVisibleChildren();
   var locations = getLocations();
+  var cPins = getChildPins();
   if (!children.length) {
     document.getElementById('childList').innerHTML = '';
     document.getElementById('emptyMsg').style.display = '';
@@ -356,11 +594,15 @@ function updateList() {
     var active = loc && loc.isActive !== false && !stale;
     var cls = active ? 'list-item online' : 'list-item offline';
     var dist = getDistanceText(child.id);
+    var pinCount = cPins.filter(function(cp) { return cp.childId === child.id; }).length;
 
     html += '<div class="' + cls + '" style="flex-wrap:wrap;">'
       + '<div class="emoji" onclick="focusChild(\'' + child.id + '\')" style="cursor:pointer;">' + (child.emoji || '📍') + '</div>'
       + '<div class="info" onclick="focusChild(\'' + child.id + '\')" style="cursor:pointer;">'
       + '<div class="name">' + child.name;
+    if (pinCount > 0) {
+      html += '<span class="child-pin-badge">핑 ' + pinCount + '</span>';
+    }
     if (child.phone) {
       html += ' <a href="tel:' + child.phone + '" onclick="event.stopPropagation()" style="font-size:12px;color:#3498db;text-decoration:none;">📞</a>';
     }
@@ -417,6 +659,11 @@ function fitAll() {
   getPins().forEach(function(p) {
     if (p.lat) { bounds.extend(new kakao.maps.LatLng(p.lat, p.lng)); has = true; }
   });
+  var plocs = getParentLocations();
+  Object.keys(plocs).forEach(function(k) {
+    var pl = plocs[k];
+    if (pl && pl.lat && pl.isActive) { bounds.extend(new kakao.maps.LatLng(pl.lat, pl.lng)); has = true; }
+  });
   if (has) map.setBounds(bounds);
 }
 
@@ -450,6 +697,7 @@ function doLogin() {
     visibleChildIds = null;
     authenticated = true;
     document.getElementById('logoutBtn').style.display = '';
+    document.getElementById('parentShareCard').style.display = '';
     addParentFilter();
     kakao.maps.load(initMap);
     return;
@@ -464,6 +712,7 @@ function doLogin() {
     authenticated = true;
     document.getElementById('logoutBtn').style.display = '';
     document.getElementById('childMgmtCard').style.display = '';
+    document.getElementById('parentShareCard').style.display = '';
     kakao.maps.load(initMap);
     return;
   }
@@ -472,7 +721,10 @@ function doLogin() {
   document.getElementById('loginPw').value = '';
 }
 
-function doLogout() { location.reload(); }
+function doLogout() {
+  if (parentShareActive) stopParentShare();
+  location.reload();
+}
 
 function addParentFilter() {
   var parents = getParents();
@@ -557,6 +809,13 @@ function removeMyChild(childId, childName) {
     setTimeout(render, 500);
   }
 }
+
+window.addEventListener('beforeunload', function() {
+  if (parentShareActive) {
+    var shareId = currentParentId || 'admin';
+    fbDb.ref('/parentLocations/' + shareId).update({ isActive: false, timestamp: Date.now() });
+  }
+});
 </script>
 </body>
 </html>

@@ -83,6 +83,16 @@ function getLocations() {
   return _cache.locations || {};
 }
 
+function getChildPins() {
+  var p = _cache.childPins || {};
+  return Object.keys(p).map(function(k) { return Object.assign({ id: k }, p[k]); })
+    .sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+}
+
+function getParentLocations() {
+  return _cache.parentLocations || {};
+}
+
 function getConfig() {
   return _cache.config || Object.assign({}, defaultConfig);
 }
