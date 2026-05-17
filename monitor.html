@@ -155,11 +155,12 @@
     <div id="parentPingForm" style="display:none;margin-top:8px;padding:10px;background:#f8f9fa;border-radius:6px;">
       <div id="ppingLocLabel" style="font-size:13px;color:#27ae60;font-weight:600;text-align:center;margin-bottom:6px;">📍 위치를 선택하세요</div>
       <div style="display:flex;gap:4px;margin-bottom:6px;">
+        <button class="small" onclick="useMyLocationForPing()" style="white-space:nowrap;">📍 현재 위치</button>
         <input id="ppingAddr" type="text" placeholder="주소·장소 검색" style="flex:1;font-size:13px;padding:8px;">
         <button class="small" onclick="searchParentPingAddr()">검색</button>
       </div>
       <div id="ppingAddrResults" style="max-height:100px;overflow-y:auto;margin-bottom:6px;"></div>
-      <div style="font-size:11px;color:#aaa;margin-bottom:6px;text-align:center;">또는 지도를 눌러서 위치 선택</div>
+      <div style="font-size:11px;color:#aaa;margin-bottom:6px;text-align:center;">지도를 눌러서 위치 선택도 가능</div>
       <input id="ppingMsg" type="text" placeholder="메시지 (선택)" style="font-size:13px;padding:8px;text-align:center;">
       <input type="hidden" id="ppingLat">
       <input type="hidden" id="ppingLng">
@@ -261,6 +262,7 @@ var distanceLogs = {};
 var prevLocations = {};
 var parentShareActive = false;
 var parentWatchId = null;
+var myLat = null, myLng = null;
 var geocoder = null;
 var longPressTimer = null;
 
@@ -643,9 +645,11 @@ function startParentShare() {
 
   parentWatchId = navigator.geolocation.watchPosition(
     function(pos) {
+      myLat = pos.coords.latitude;
+      myLng = pos.coords.longitude;
       var payload = {
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude,
+        lat: myLat,
+        lng: myLng,
         accuracy: Math.round(pos.coords.accuracy),
         timestamp: Date.now(),
         isActive: true
@@ -1111,14 +1115,51 @@ var parentPingMarkers = [];
 var parentPingFormOpen = false;
 
 function showParentPing() {
-  document.getElementById('ppingLat').value = '';
-  document.getElementById('ppingLng').value = '';
   document.getElementById('ppingMsg').value = '';
   document.getElementById('ppingAddr').value = '';
   document.getElementById('ppingAddrResults').innerHTML = '';
-  document.getElementById('ppingLocLabel').textContent = '📍 위치를 선택하세요';
+  if (myLat && myLng) {
+    document.getElementById('ppingLat').value = myLat;
+    document.getElementById('ppingLng').value = myLng;
+    document.getElementById('ppingLocLabel').textContent = '📍 내 현재 위치';
+  } else {
+    document.getElementById('ppingLat').value = '';
+    document.getElementById('ppingLng').value = '';
+    document.getElementById('ppingLocLabel').textContent = '📍 위치를 선택하세요';
+    navigator.geolocation.getCurrentPosition(function(pos) {
+      myLat = pos.coords.latitude;
+      myLng = pos.coords.longitude;
+      if (!document.getElementById('ppingLat').value) {
+        document.getElementById('ppingLat').value = myLat;
+        document.getElementById('ppingLng').value = myLng;
+        document.getElementById('ppingLocLabel').textContent = '📍 내 현재 위치';
+      }
+    }, function() {}, { enableHighAccuracy: true, timeout: 10000 });
+  }
   document.getElementById('parentPingForm').style.display = '';
   parentPingFormOpen = true;
+}
+function useMyLocationForPing() {
+  if (myLat && myLng) {
+    document.getElementById('ppingLat').value = myLat;
+    document.getElementById('ppingLng').value = myLng;
+    document.getElementById('ppingLocLabel').textContent = '📍 내 현재 위치';
+    showPinTempMarker(myLat, myLng);
+    map.setCenter(new kakao.maps.LatLng(myLat, myLng));
+    return;
+  }
+  document.getElementById('ppingLocLabel').textContent = '⏳ 위치 확인 중...';
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    myLat = pos.coords.latitude;
+    myLng = pos.coords.longitude;
+    document.getElementById('ppingLat').value = myLat;
+    document.getElementById('ppingLng').value = myLng;
+    document.getElementById('ppingLocLabel').textContent = '📍 내 현재 위치';
+    showPinTempMarker(myLat, myLng);
+    map.setCenter(new kakao.maps.LatLng(myLat, myLng));
+  }, function() {
+    document.getElementById('ppingLocLabel').textContent = '❌ 위치를 가져올 수 없습니다';
+  }, { enableHighAccuracy: true, timeout: 10000 });
 }
 function hideParentPing() {
   document.getElementById('parentPingForm').style.display = 'none';
@@ -1182,7 +1223,19 @@ function sendParentPing() {
     parentId: senderId, parentName: senderName,
     lat: lat, lng: lng, message: msg || '여기야!', timestamp: Date.now()
   });
-  hideParentPing();
+  if (pinTempMarker) { pinTempMarker.setMap(null); pinTempMarker = null; }
+  document.getElementById('ppingMsg').value = '';
+  document.getElementById('ppingAddr').value = '';
+  document.getElementById('ppingAddrResults').innerHTML = '';
+  if (myLat && myLng) {
+    document.getElementById('ppingLat').value = myLat;
+    document.getElementById('ppingLng').value = myLng;
+    document.getElementById('ppingLocLabel').textContent = '📍 내 현재 위치';
+  } else {
+    document.getElementById('ppingLat').value = '';
+    document.getElementById('ppingLng').value = '';
+    document.getElementById('ppingLocLabel').textContent = '📍 위치를 선택하세요';
+  }
 }
 function renderParentPins() {
   parentPingMarkers.forEach(function(m) { m.setMap(null); });

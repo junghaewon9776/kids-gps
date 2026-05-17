@@ -514,9 +514,13 @@ function confirmChildPin() {
     childId: childId, lat: pinLat, lng: pinLng,
     message: msg || '나 여기있어!', timestamp: Date.now()
   });
-  document.getElementById('childPinMsg').style.display = 'none';
   if (pinTempMarker) { pinTempMarker.setMap(null); pinTempMarker = null; }
-  pinLat = null; pinLng = null;
+  document.getElementById('childPinMsgInput').value = '';
+  document.getElementById('childAddrInput').value = '';
+  document.getElementById('childAddrResults').innerHTML = '';
+  pinLat = currentLat;
+  pinLng = currentLng;
+  document.getElementById('pinLocLabel').textContent = pinLat ? '📍 내 현재 위치' : '📍 위치를 선택하세요';
 }
 function cancelChildPin() {
   document.getElementById('childPinMsg').style.display = 'none';
