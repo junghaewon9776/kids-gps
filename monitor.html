@@ -375,10 +375,12 @@ function buildInfoWindow(child, loc) {
   if (loc.batteryLevel != null) html += '<div>🔋 ' + loc.batteryLevel + '%</div>';
   if (dist) html += '<div>📏 이동거리: ' + dist + '</div>';
   if (child.phone) html += '<div><a href="tel:' + child.phone + '" style="color:#3498db;">📞 ' + child.phone + '</a></div>';
-  html += '<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">'
-    + '<button onclick="openNaviWalk(\'' + child.name + '\',' + loc.lat + ',' + loc.lng + ')" style="background:#27ae60;color:#fff;border:none;padding:5px 8px;border-radius:4px;font-size:11px;cursor:pointer;">🚶 도보</button>'
+  html += '<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">';
+  if (child.phone) html += '<a href="tel:' + child.phone + '" style="background:#27ae60;color:#fff;border:none;padding:5px 8px;border-radius:4px;font-size:11px;cursor:pointer;text-decoration:none;display:inline-block;">📞 전화</a>';
+  html += '<button onclick="openNaviWalk(\'' + child.name + '\',' + loc.lat + ',' + loc.lng + ')" style="background:#27ae60;color:#fff;border:none;padding:5px 8px;border-radius:4px;font-size:11px;cursor:pointer;">🚶 도보</button>'
     + '<button onclick="openNaviCar(\'' + child.name + '\',' + loc.lat + ',' + loc.lng + ')" style="background:#3498db;color:#fff;border:none;padding:5px 8px;border-radius:4px;font-size:11px;cursor:pointer;">🚗 차량</button>'
     + '<button onclick="ringChild(\'' + child.id + '\',\'' + child.name + '\')" style="background:#e74c3c;color:#fff;border:none;padding:5px 8px;border-radius:4px;font-size:11px;cursor:pointer;">🔔 벨</button>'
+    + '<button onclick="openFamilyLink()" style="background:#4285f4;color:#fff;border:none;padding:5px 8px;border-radius:4px;font-size:11px;cursor:pointer;">📱 FL</button>'
     + '</div></div>';
   return html;
 }
@@ -694,11 +696,15 @@ function updateList() {
 
     html += '</div></div><div class="child-actions">';
 
+    if (child.phone) {
+      html += '<button onclick="event.stopPropagation();location.href=\'tel:' + child.phone + '\'" style="background:#27ae60;color:#fff;" title="전화 걸기">📞</button>';
+    }
     if (loc && loc.lat) {
       html += '<button onclick="event.stopPropagation();openNaviWalk(\'' + child.name + '\',' + loc.lat + ',' + loc.lng + ')" style="background:#27ae60;color:#fff;" title="도보 네비">🚶</button>'
         + '<button onclick="event.stopPropagation();openNaviCar(\'' + child.name + '\',' + loc.lat + ',' + loc.lng + ')" style="background:#3498db;color:#fff;" title="차량 네비">🚗</button>';
     }
-    html += '<button onclick="event.stopPropagation();ringChild(\'' + child.id + '\',\'' + child.name + '\')" style="background:#e74c3c;color:#fff;" title="벨 울리기">🔔</button>';
+    html += '<button onclick="event.stopPropagation();ringChild(\'' + child.id + '\',\'' + child.name + '\')" style="background:#e74c3c;color:#fff;" title="벨 울리기 (페이지 열린 경우)">🔔</button>';
+    html += '<button onclick="event.stopPropagation();openFamilyLink()" style="background:#4285f4;color:#fff;font-size:10px;" title="Family Link 소리 재생">📱FL</button>';
 
     if (loginMode === 'parent') {
       html += '<button onclick="event.stopPropagation();removeMyChild(\'' + child.id + '\',\'' + child.name + '\')" style="background:#95a5a6;color:#fff;font-size:11px;" title="해제">✕</button>';
@@ -709,10 +715,21 @@ function updateList() {
 }
 
 function ringChild(childId, childName) {
-  if (!confirm(childName + ' 폰에서 벨을 울릴까요?')) return;
+  if (!confirm(childName + ' 폰에서 벨을 울릴까요?\n(아이가 페이지를 열어둔 경우에만 작동)')) return;
   fbDb.ref('/alerts/' + childId).set({ ring: true, timestamp: Date.now() });
   alert(childName + ' 폰에 벨 신호를 보냈습니다.');
   setTimeout(function() { fbDb.ref('/alerts/' + childId).remove(); }, 30000);
+}
+
+function openFamilyLink() {
+  var ua = navigator.userAgent;
+  if (/Android/i.test(ua)) {
+    location.href = 'intent://familylink.google.com/#Intent;scheme=https;package=com.google.android.apps.kids.familylink;end';
+  } else if (/iPhone|iPad/i.test(ua)) {
+    location.href = 'https://familylink.google.com';
+  } else {
+    window.open('https://familylink.google.com');
+  }
 }
 
 function focusChild(id) {
