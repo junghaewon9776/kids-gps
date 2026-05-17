@@ -14,11 +14,24 @@
 </header>
 
 <div class="container">
-  <div class="card child-status" id="statusCard">
+  <!-- 연락처 입력 -->
+  <div class="card child-status" id="phoneCard">
+    <div class="big-emoji">📱</div>
+    <div class="child-name">연락처를 입력하세요</div>
+    <div style="margin-top:16px;max-width:260px;margin-left:auto;margin-right:auto;">
+      <input id="phoneInput" type="tel" inputmode="tel" placeholder="010-0000-0000"
+        style="text-align:center;font-size:18px;letter-spacing:1px;padding:12px;"
+        onkeydown="if(event.key==='Enter')startWithPhone()">
+      <button onclick="startWithPhone()" style="width:100%;margin-top:10px;padding:12px;font-size:15px;font-weight:600;">위치 전송 시작</button>
+      <p class="muted" style="margin-top:8px;">부모님이 등록한 연락처와 동일해야 합니다.</p>
+    </div>
+  </div>
+
+  <div class="card child-status" id="statusCard" style="display:none;">
     <div class="big-emoji" id="childEmoji">📡</div>
     <div class="child-name" id="childName">로딩 중...</div>
     <div id="statusArea" style="margin-top:16px;">
-      <div class="gps-info">Firebase 연결 중...</div>
+      <div class="gps-info">GPS 연결 중...</div>
     </div>
   </div>
 
@@ -51,34 +64,66 @@
 <script src="firebase-config.js"></script>
 <script src="common.js"></script>
 <script>
-var childId = new URLSearchParams(location.search).get('id');
-if (!childId) {
-  document.getElementById('childName').textContent = '잘못된 접근';
-  document.getElementById('statusArea').innerHTML = '<p style="color:#e74c3c;">URL에 ?id=xxx 파라미터가 필요합니다.</p>';
-}
-
+var childId = null;
+var matchedChild = null;
 var map = null, myMarker = null;
 var watchId = null;
 var lastWriteTime = 0;
 var gpsCount = 0;
 
-if (childId) {
-  initFirebaseSync();
-  onDataReady(function() {
-    var children = getChildren();
-    var child = children.find(function(c) { return c.id === childId; });
-    if (!child) {
-      document.getElementById('childName').textContent = '등록되지 않은 아이';
-      document.getElementById('statusArea').innerHTML = '<p style="color:#e74c3c;">admin 페이지에서 먼저 아이를 등록하세요.</p>';
+initFirebaseSync();
+
+// 저장된 연락처로 자동 시작
+onDataReady(function() {
+  var saved = localStorage.getItem('kids_phone');
+  if (saved) {
+    var found = findChildByPhone(saved);
+    if (found) {
+      document.getElementById('phoneCard').style.display = 'none';
+      document.getElementById('statusCard').style.display = '';
+      startTracking(found);
       return;
     }
+    localStorage.removeItem('kids_phone');
+  }
+});
 
-    document.getElementById('childEmoji').textContent = child.emoji || '📡';
-    document.getElementById('childName').textContent = child.name;
-    document.title = child.name + ' - 위치 전송';
+function normalizePhone(p) {
+  return (p || '').replace(/[^0-9]/g, '');
+}
 
-    startGPS(child);
-  });
+function findChildByPhone(phone) {
+  var norm = normalizePhone(phone);
+  if (!norm) return null;
+  var children = getChildren();
+  return children.find(function(c) { return normalizePhone(c.phone) === norm; }) || null;
+}
+
+function startWithPhone() {
+  var phone = document.getElementById('phoneInput').value.trim();
+  if (!phone) { alert('연락처를 입력하세요.'); return; }
+
+  var found = findChildByPhone(phone);
+  if (!found) {
+    alert('등록되지 않은 연락처입니다.\n부모님이 먼저 자녀를 등록해야 합니다.');
+    return;
+  }
+
+  localStorage.setItem('kids_phone', normalizePhone(phone));
+  document.getElementById('phoneCard').style.display = 'none';
+  document.getElementById('statusCard').style.display = '';
+  startTracking(found);
+}
+
+function startTracking(child) {
+  childId = child.id;
+  matchedChild = child;
+
+  document.getElementById('childEmoji').textContent = child.emoji || '📡';
+  document.getElementById('childName').textContent = child.name;
+  document.title = child.name + ' - 위치 전송';
+
+  startGPS(child);
 }
 
 function startGPS(child) {
@@ -183,7 +228,6 @@ function startGPS(child) {
     fbDb.ref('/locations/' + childId).update({ isActive: false, lastUpdate: Date.now() });
   });
 
-  // 벨 울리기 감시
   listenAlarm();
 }
 
@@ -211,7 +255,6 @@ function playAlarm() {
 
   stopAlarmSound();
 
-  // 반복 알람음: 0.3초 울리고 0.2초 쉬고
   function beep() {
     var osc = alarmCtx.createOscillator();
     var gain = alarmCtx.createGain();
@@ -246,7 +289,6 @@ function playAlarm() {
   beep();
   alarmInterval = setInterval(beep, 800);
 
-  // 30초 후 자동 정지
   setTimeout(function() { stopAlarm(); }, 30000);
 }
 

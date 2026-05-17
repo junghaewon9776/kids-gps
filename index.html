@@ -18,26 +18,27 @@
     <a href="monitor.html" class="menu-card" style="grid-column:span 2;background:#27ae60;color:#fff;">
       <div class="icon">🗺️</div>
       <div class="title">위치 모니터링</div>
-      <div class="desc" style="color:#e8f5e9;">아이들 실시간 위치 + 거점 확인</div>
+      <div class="desc" style="color:#e8f5e9;">부모/관리자 로그인 → 실시간 위치 확인</div>
     </a>
     <a href="admin.html" class="menu-card">
       <div class="icon">⚙️</div>
       <div class="title">관리</div>
-      <div class="desc">아이 등록 · 거점 · 설정</div>
+      <div class="desc">부모 계정 · 거점 · 설정</div>
     </a>
-    <a href="#" class="menu-card" id="childLinksCard" onclick="toggleChildLinks();return false;">
-      <div class="icon">📱</div>
-      <div class="title">전송 링크</div>
-      <div class="desc">아이별 GPS 전송 페이지</div>
+    <a href="child.html" class="menu-card">
+      <div class="icon">📡</div>
+      <div class="title">위치 전송</div>
+      <div class="desc">아이 폰에서 열기</div>
     </a>
   </div>
 
-  <div class="card" id="childLinksPanel" style="display:none;max-width:500px;margin:0 auto;">
-    <h2>📱 아이별 전송 링크</h2>
-    <p class="muted" style="margin-bottom:8px;">아이 폰에서 아래 링크를 열면 위치 전송이 시작됩니다.</p>
-    <div id="childLinkList"></div>
-    <div id="noChildMsg" class="empty" style="display:none;">
-      등록된 아이가 없습니다. <a href="admin.html">관리 페이지</a>에서 추가하세요.
+  <div class="card" style="max-width:500px;margin:0 auto;">
+    <h2>📱 사용 방법</h2>
+    <div style="font-size:13px;line-height:1.8;">
+      <p><b>1단계:</b> 관리 페이지에서 부모 계정(ID+비번) 생성</p>
+      <p><b>2단계:</b> 부모가 모니터링 페이지에서 로그인 → 자녀 등록(연락처)</p>
+      <p><b>3단계:</b> 아이 폰에서 위치 전송 페이지 열고 → 연락처 입력하면 GPS 전송 시작</p>
+      <p><b>4단계:</b> 부모 모니터링에서 실시간 위치 확인, 벨 울리기, 길찾기</p>
     </div>
   </div>
 
@@ -46,9 +47,6 @@
     <p style="font-size:13px;line-height:1.6;">
       모든 기기에서 <b>실시간 동기화</b>됩니다.<br>
       아이 폰에서 위치를 전송하면 모니터링 페이지에 즉시 반영됩니다.
-    </p>
-    <p class="muted" style="margin-top:8px;">
-      모니터링/관리 = PIN 필요 · 위치 전송 = 링크만 있으면 접근 가능
     </p>
   </div>
 </div>
@@ -61,44 +59,7 @@
 initFirebaseSync();
 onDataReady(function() {
   document.getElementById('syncStatus').textContent = '✅ 연결됨';
-  renderChildLinks();
 });
-
-window.onDataChanged = renderChildLinks;
-
-function toggleChildLinks() {
-  var panel = document.getElementById('childLinksPanel');
-  panel.style.display = panel.style.display === 'none' ? '' : 'none';
-}
-
-function renderChildLinks() {
-  var children = getChildren();
-  var list = document.getElementById('childLinkList');
-  var msg = document.getElementById('noChildMsg');
-
-  if (!children.length) {
-    list.innerHTML = '';
-    msg.style.display = '';
-    return;
-  }
-  msg.style.display = 'none';
-
-  var base = location.href.replace(/\/[^\/]*$/, '/');
-  var html = '';
-  children.forEach(function(c) {
-    var url = base + 'child.html?id=' + c.id;
-    html += '<div style="padding:8px 0;border-bottom:1px solid #eee;display:flex;align-items:center;gap:8px;">'
-      + '<span style="font-size:20px;">' + (c.emoji || '📍') + '</span>'
-      + '<div style="flex:1;min-width:0;">'
-      + '<div style="font-weight:600;">' + c.name + '</div>'
-      + '<div style="font-size:11px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + url + '</div>'
-      + '</div>'
-      + '<button class="small" onclick="navigator.clipboard.writeText(\'' + url + '\');this.textContent=\'복사됨!\';setTimeout(()=>this.textContent=\'복사\',1500)">복사</button>'
-      + '<a href="' + url + '" class="small btn" style="text-decoration:none;font-size:11px;">열기</a>'
-      + '</div>';
-  });
-  list.innerHTML = html;
-}
 </script>
 </body>
 </html>

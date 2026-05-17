@@ -19,63 +19,20 @@
 
 <div class="container">
   <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('children')">👧 아이들</button>
-    <button class="tab-btn" onclick="switchTab('parents')">👨‍👩‍👧 부모</button>
+    <button class="tab-btn active" onclick="switchTab('parents')">👨‍👩‍👧 부모</button>
     <button class="tab-btn" onclick="switchTab('pins')">📌 거점</button>
     <button class="tab-btn" onclick="switchTab('settings')">⚙️ 설정</button>
   </div>
 
-  <!-- 아이들 탭 -->
-  <div class="tab-panel active" id="tab-children">
-    <div class="card">
-      <div class="flex-between">
-        <h2>등록된 아이들</h2>
-        <button class="success" onclick="showAddChild()">+ 추가</button>
-      </div>
-      <div id="childrenList"></div>
-      <div id="childrenEmpty" class="empty" style="display:none;">아이를 추가해주세요.</div>
-    </div>
-
-    <!-- 추가/수정 폼 -->
-    <div class="card" id="childForm" style="display:none;">
-      <h2 id="childFormTitle">아이 추가</h2>
-      <input type="hidden" id="editChildId">
-      <label>이름</label>
-      <input id="cfName" type="text" placeholder="예: 민준">
-      <label>이모지</label>
-      <div style="display:flex;gap:4px;flex-wrap:wrap;margin:4px 0 8px;" id="emojiPicker"></div>
-      <input id="cfEmoji" type="text" placeholder="직접 입력도 가능" style="width:60px;text-align:center;font-size:20px;">
-      <label>색상</label>
-      <div style="display:flex;gap:4px;flex-wrap:wrap;margin:4px 0 8px;" id="colorPicker"></div>
-      <input id="cfColor" type="color" value="#FF6B6B" style="width:50px;height:30px;">
-      <label>전화번호 (선택)</label>
-      <input id="cfPhone" type="tel" placeholder="010-0000-0000">
-      <div style="margin-top:10px;display:flex;gap:6px;">
-        <button class="success" onclick="saveChild()">저장</button>
-        <button class="gray" onclick="hideChildForm()">취소</button>
-      </div>
-    </div>
-
-    <!-- 링크/QR -->
-    <div class="card" id="linkCard" style="display:none;">
-      <h2>📱 아이별 전송 링크</h2>
-      <p class="muted" style="margin-bottom:8px;">아이 폰에서 이 링크를 열면 위치 전송이 시작됩니다.</p>
-      <label>기본 URL (GitHub Pages 배포 후 수정)</label>
-      <input id="baseUrl" type="text" placeholder="https://yourname.github.io/kids-gps/" style="margin-bottom:8px;">
-      <button class="small" onclick="generateLinks()">링크 생성</button>
-      <div id="linkList" style="margin-top:8px;"></div>
-    </div>
-  </div>
-
   <!-- 부모 탭 -->
-  <div class="tab-panel" id="tab-parents">
+  <div class="tab-panel active" id="tab-parents">
     <div class="card">
       <div class="flex-between">
         <h2>등록된 부모</h2>
         <button class="success" onclick="showAddParent()">+ 추가</button>
       </div>
       <div id="parentsList"></div>
-      <div id="parentsEmpty" class="empty" style="display:none;">부모를 추가해주세요.</div>
+      <div id="parentsEmpty" class="empty" style="display:none;">부모 계정을 추가해주세요.</div>
     </div>
 
     <div class="card" id="parentForm" style="display:none;">
@@ -83,15 +40,20 @@
       <input type="hidden" id="editParentId">
       <label>이름</label>
       <input id="ppName" type="text" placeholder="예: 엄마, 아빠, 할머니">
-      <label>PIN (부모 전용 비밀번호)</label>
-      <input id="ppPin" type="text" inputmode="numeric" maxlength="10" placeholder="예: 0000">
-      <p class="muted">빈칸이면 PIN 없이 접근 가능</p>
-      <label>자녀 선택</label>
-      <div id="parentChildPicker" style="margin:4px 0 8px;"></div>
+      <label>로그인 아이디</label>
+      <input id="ppLoginId" type="text" placeholder="예: mom, dad">
+      <label>비밀번호</label>
+      <input id="ppLoginPw" type="text" placeholder="비밀번호">
       <div style="margin-top:10px;display:flex;gap:6px;">
         <button class="success" onclick="saveParent()">저장</button>
         <button class="gray" onclick="hideParentForm()">취소</button>
       </div>
+    </div>
+
+    <!-- 부모별 자녀 현황 -->
+    <div class="card" id="parentChildrenCard" style="display:none;">
+      <h2>부모별 자녀 현황</h2>
+      <div id="parentChildrenList"></div>
     </div>
   </div>
 
@@ -119,11 +81,19 @@
         <option value="work">🏢 회사</option>
         <option value="other">📍 기타</option>
       </select>
-      <label>이모지 (카테고리 기본값 사용 또는 직접 입력)</label>
+      <label>이모지</label>
       <input id="pfEmoji" type="text" value="🏠" style="width:60px;text-align:center;font-size:20px;">
       <label>색상</label>
       <input id="pfColor" type="color" value="#e74c3c" style="width:50px;height:30px;">
-      <label>위치 (지도를 클릭하거나 좌표 직접 입력)</label>
+
+      <label>주소 검색</label>
+      <div style="display:flex;gap:6px;">
+        <input id="pfAddress" type="text" placeholder="주소 입력 (예: 서울시 강남구)" style="flex:1;">
+        <button onclick="searchAddress()" style="white-space:nowrap;">검색</button>
+      </div>
+      <div id="addressResults" style="margin-top:4px;"></div>
+
+      <label>좌표 (지도 클릭/드래그 또는 직접 입력)</label>
       <div style="display:flex;gap:6px;">
         <input id="pfLat" type="number" step="any" placeholder="위도">
         <input id="pfLng" type="number" step="any" placeholder="경도">
@@ -131,7 +101,7 @@
       <div class="map-wrap" style="margin-top:8px;">
         <div id="pinMap" class="map" style="height:300px;"></div>
       </div>
-      <p class="muted" style="margin-top:4px;">지도를 클릭하면 좌표가 자동 입력됩니다.</p>
+      <p class="muted" style="margin-top:4px;">지도 클릭으로 위치 지정 · 마커를 드래그하여 이동 가능</p>
       <div style="margin-top:10px;display:flex;gap:6px;">
         <button class="success" onclick="savePin()">저장</button>
         <button class="gray" onclick="hidePinForm()">취소</button>
@@ -142,11 +112,16 @@
   <!-- 설정 탭 -->
   <div class="tab-panel" id="tab-settings">
     <div class="card">
-      <h2>시스템 설정</h2>
-      <label>접속 PIN (모니터링/관리 접근용)</label>
-      <input id="setPin" type="text" inputmode="numeric" maxlength="10" placeholder="예: 1234">
-      <p class="muted">빈칸이면 PIN 없이 접근 가능</p>
+      <h2>관리자 계정</h2>
+      <label>관리자 아이디</label>
+      <input id="setAdminId" type="text" placeholder="예: admin">
+      <label>관리자 비밀번호</label>
+      <input id="setAdminPw" type="text" placeholder="비밀번호">
+      <p class="muted">관리자 페이지와 모니터링 관리자 로그인에 사용됩니다.</p>
+    </div>
 
+    <div class="card">
+      <h2>GPS 설정</h2>
       <label>GPS 전송 간격 (초)</label>
       <input id="setInterval" type="number" min="5" max="300" value="15">
       <p class="muted">짧을수록 정확하지만 배터리 소모 증가 (권장: 10~30초)</p>
@@ -154,9 +129,11 @@
       <label>비활성 판정 시간 (분)</label>
       <input id="setStale" type="number" min="1" max="60" value="10">
       <p class="muted">이 시간 동안 위치 전송이 없으면 오프라인으로 표시</p>
+    </div>
 
-      <div style="margin-top:12px;">
-        <button class="success" onclick="saveSettings()">설정 저장</button>
+    <div class="card">
+      <div style="display:flex;gap:6px;">
+        <button class="success" onclick="saveSettings()" style="flex:1;">설정 저장</button>
       </div>
     </div>
 
@@ -167,30 +144,27 @@
   </div>
 </div>
 
-<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=f3f8fa6decb5e2185b09d6bf70ef525b&autoload=false"></script>
+<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=f3f8fa6decb5e2185b09d6bf70ef525b&libraries=services&autoload=false"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
 <script src="firebase-config.js"></script>
 <script src="common.js"></script>
 <script>
 var pinMap = null, pinMapMarker = null;
+var geocoder = null;
 
 initFirebaseSync();
 onDataReady(function() {
-  showPinGate(function() {
+  showAdminPinGate(function() {
     render();
     loadSettings();
     document.getElementById('fbStatus').innerHTML = '<span style="color:#27ae60;">✅ Firebase 연결됨</span>';
-    kakao.maps.load(function() {
-      // 거점 탭 진입 시 지도 초기화
-    });
   });
 });
 
 window.onDataChanged = render;
 
-// 탭 전환
-var TAB_LABELS = { children: '아이', parents: '부모', pins: '거점', settings: '설정' };
+var TAB_LABELS = { parents: '부모', pins: '거점', settings: '설정' };
 function switchTab(name) {
   document.querySelectorAll('.tab-btn').forEach(function(b) {
     b.classList.toggle('active', b.textContent.includes(TAB_LABELS[name] || ''));
@@ -202,139 +176,129 @@ function switchTab(name) {
 }
 
 function render() {
-  renderChildren();
   renderParentsList();
   renderPins();
+  renderParentChildren();
 }
 
-// ──── 아이들 관리 ────
-function renderChildren() {
-  var children = getChildren();
-  var list = document.getElementById('childrenList');
+// ──── 부모 관리 ────
+function renderParentsList() {
+  var parents = getParents();
+  var list = document.getElementById('parentsList');
 
-  if (!children.length) {
+  if (!parents.length) {
     list.innerHTML = '';
-    document.getElementById('childrenEmpty').style.display = '';
-    document.getElementById('linkCard').style.display = 'none';
+    document.getElementById('parentsEmpty').style.display = '';
     return;
   }
-  document.getElementById('childrenEmpty').style.display = 'none';
-  document.getElementById('linkCard').style.display = '';
+  document.getElementById('parentsEmpty').style.display = 'none';
 
+  var children = getChildren();
   var html = '';
-  children.forEach(function(c, i) {
+  parents.forEach(function(p) {
+    var childNames = (p.childIds || []).map(function(cid) {
+      var c = children.find(function(x) { return x.id === cid; });
+      return c ? (c.emoji || '') + c.name : '(삭제됨)';
+    }).join(', ') || '자녀 없음';
+
     html += '<div class="list-item">'
-      + '<div class="emoji">' + (c.emoji || '📍') + '</div>'
+      + '<div class="emoji">👤</div>'
       + '<div class="info">'
-      + '<div class="name">' + c.name + '</div>'
-      + '<div class="sub">'
-      + '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' + (c.color || '#ccc') + ';vertical-align:middle;margin-right:4px;"></span>'
-      + (c.phone || '') + ' · ID: ' + c.id
-      + '</div></div>'
+      + '<div class="name">' + p.name + ' <span class="muted">(' + (p.loginId || '') + ')</span></div>'
+      + '<div class="sub">' + childNames + '</div>'
+      + '</div>'
       + '<div style="display:flex;gap:4px;">'
-      + '<button class="small" onclick="editChild(\'' + c.id + '\')">수정</button>'
-      + '<button class="small danger" onclick="deleteChild(\'' + c.id + '\',\'' + c.name + '\')">삭제</button>'
+      + '<button class="small" onclick="editParent(\'' + p.id + '\')">수정</button>'
+      + '<button class="small danger" onclick="deleteParent(\'' + p.id + '\',\'' + p.name + '\')">삭제</button>'
       + '</div></div>';
   });
   list.innerHTML = html;
 }
 
-function showAddChild() {
-  document.getElementById('childFormTitle').textContent = '아이 추가';
-  document.getElementById('editChildId').value = '';
-  document.getElementById('cfName').value = '';
+function renderParentChildren() {
+  var parents = getParents();
   var children = getChildren();
-  var idx = children.length;
-  document.getElementById('cfEmoji').value = CHILD_EMOJIS[idx % CHILD_EMOJIS.length];
-  document.getElementById('cfColor').value = CHILD_COLORS[idx % CHILD_COLORS.length];
-  document.getElementById('cfPhone').value = '';
-  buildPickers(idx);
-  document.getElementById('childForm').style.display = '';
-}
+  if (!parents.length || !children.length) {
+    document.getElementById('parentChildrenCard').style.display = 'none';
+    return;
+  }
+  document.getElementById('parentChildrenCard').style.display = '';
 
-function editChild(id) {
-  var children = getChildren();
-  var c = children.find(function(x) { return x.id === id; });
-  if (!c) return;
-  document.getElementById('childFormTitle').textContent = '아이 수정';
-  document.getElementById('editChildId').value = id;
-  document.getElementById('cfName').value = c.name;
-  document.getElementById('cfEmoji').value = c.emoji || '';
-  document.getElementById('cfColor').value = c.color || '#3498db';
-  document.getElementById('cfPhone').value = c.phone || '';
-  buildPickers(-1);
-  document.getElementById('childForm').style.display = '';
-}
-
-function buildPickers(defaultIdx) {
-  var emojiHtml = '';
-  CHILD_EMOJIS.forEach(function(e) {
-    emojiHtml += '<button type="button" onclick="document.getElementById(\'cfEmoji\').value=\'' + e + '\'" '
-      + 'style="font-size:20px;background:none;border:1px solid #ddd;border-radius:6px;padding:4px 8px;cursor:pointer;">'
-      + e + '</button>';
+  var html = '';
+  parents.forEach(function(p) {
+    html += '<div style="margin-bottom:8px;padding:8px;background:#f8f9fa;border-radius:6px;">'
+      + '<div style="font-weight:600;">👤 ' + p.name + '</div>';
+    var ids = p.childIds || [];
+    if (!ids.length) {
+      html += '<div class="muted" style="padding:4px 0;">자녀 없음 (부모가 직접 등록)</div>';
+    } else {
+      ids.forEach(function(cid) {
+        var c = children.find(function(x) { return x.id === cid; });
+        if (c) {
+          html += '<div style="padding:2px 0;font-size:13px;">' + (c.emoji || '📍') + ' ' + c.name + ' <span class="muted">' + (c.phone || '') + '</span></div>';
+        }
+      });
+    }
+    html += '</div>';
   });
-  document.getElementById('emojiPicker').innerHTML = emojiHtml;
-
-  var colorHtml = '';
-  CHILD_COLORS.forEach(function(c) {
-    colorHtml += '<button type="button" onclick="document.getElementById(\'cfColor\').value=\'' + c + '\'" '
-      + 'style="width:28px;height:28px;border-radius:50%;background:' + c + ';border:2px solid #fff;box-shadow:0 0 0 1px #ccc;cursor:pointer;padding:0;">'
-      + '</button>';
-  });
-  document.getElementById('colorPicker').innerHTML = colorHtml;
+  document.getElementById('parentChildrenList').innerHTML = html;
 }
 
-function hideChildForm() {
-  document.getElementById('childForm').style.display = 'none';
+function showAddParent() {
+  document.getElementById('parentFormTitle').textContent = '부모 추가';
+  document.getElementById('editParentId').value = '';
+  document.getElementById('ppName').value = '';
+  document.getElementById('ppLoginId').value = '';
+  document.getElementById('ppLoginPw').value = '';
+  document.getElementById('parentForm').style.display = '';
 }
 
-function saveChild() {
-  var name = document.getElementById('cfName').value.trim();
+function editParent(id) {
+  var parent = getParents().find(function(p) { return p.id === id; });
+  if (!parent) return;
+  document.getElementById('parentFormTitle').textContent = '부모 수정';
+  document.getElementById('editParentId').value = id;
+  document.getElementById('ppName').value = parent.name;
+  document.getElementById('ppLoginId').value = parent.loginId || '';
+  document.getElementById('ppLoginPw').value = parent.loginPw || '';
+  document.getElementById('parentForm').style.display = '';
+}
+
+function hideParentForm() {
+  document.getElementById('parentForm').style.display = 'none';
+}
+
+function saveParent() {
+  var name = document.getElementById('ppName').value.trim();
+  var loginId = document.getElementById('ppLoginId').value.trim();
+  var loginPw = document.getElementById('ppLoginPw').value.trim();
   if (!name) { alert('이름을 입력하세요.'); return; }
+  if (!loginId) { alert('로그인 아이디를 입력하세요.'); return; }
+  if (!loginPw) { alert('비밀번호를 입력하세요.'); return; }
 
-  var editId = document.getElementById('editChildId').value;
+  var editId = document.getElementById('editParentId').value;
   var id = editId || uid();
-  var children = getChildren();
-  var order = editId
-    ? (children.find(function(c) { return c.id === editId; }) || {}).order || children.length
-    : children.length + 1;
+
+  var existing = getParents().find(function(p) { return p.loginId === loginId && p.id !== id; });
+  if (existing) { alert('이미 사용 중인 아이디입니다.'); return; }
+
+  var oldData = editId ? getParents().find(function(p) { return p.id === editId; }) : null;
 
   var data = {
     name: name,
-    emoji: document.getElementById('cfEmoji').value || '📍',
-    color: document.getElementById('cfColor').value || '#3498db',
-    phone: document.getElementById('cfPhone').value.trim(),
-    order: order
+    loginId: loginId,
+    loginPw: loginPw,
+    childIds: oldData ? (oldData.childIds || []) : []
   };
 
-  fbDb.ref('/children/' + id).set(data).then(function() {
-    hideChildForm();
+  fbDb.ref('/parents/' + id).set(data).then(function() {
+    hideParentForm();
   }).catch(function(e) { alert('저장 실패: ' + e.message); });
 }
 
-function deleteChild(id, name) {
-  if (!confirm(name + '을(를) 삭제하시겠습니까?\n위치 데이터도 함께 삭제됩니다.')) return;
-  fbDb.ref('/children/' + id).remove();
-  fbDb.ref('/locations/' + id).remove();
-}
-
-// 링크 생성
-function generateLinks() {
-  var base = document.getElementById('baseUrl').value.trim();
-  if (!base) { alert('기본 URL을 입력하세요.'); return; }
-  if (!base.endsWith('/')) base += '/';
-
-  var children = getChildren();
-  var html = '';
-  children.forEach(function(c) {
-    var url = base + 'child.html?id=' + c.id;
-    html += '<div style="padding:6px 0;border-bottom:1px solid #eee;">'
-      + '<div style="font-weight:600;">' + (c.emoji || '') + ' ' + c.name + '</div>'
-      + '<input type="text" value="' + url + '" readonly onclick="this.select()" style="font-size:11px;margin-top:2px;background:#f8f9fa;">'
-      + '<button class="small" onclick="navigator.clipboard.writeText(\'' + url + '\');this.textContent=\'복사됨!\';setTimeout(()=>this.textContent=\'복사\',1500)" style="margin-top:2px;">복사</button>'
-      + '</div>';
-  });
-  document.getElementById('linkList').innerHTML = html;
+function deleteParent(id, name) {
+  if (!confirm(name + ' 부모 계정을 삭제하시겠습니까?')) return;
+  fbDb.ref('/parents/' + id).remove();
 }
 
 // ──── 거점 관리 ────
@@ -375,6 +339,8 @@ function showAddPin() {
   document.getElementById('pfColor').value = '#e74c3c';
   document.getElementById('pfLat').value = '';
   document.getElementById('pfLng').value = '';
+  document.getElementById('pfAddress').value = '';
+  document.getElementById('addressResults').innerHTML = '';
   document.getElementById('pinForm').style.display = '';
   initPinMap();
 }
@@ -391,12 +357,16 @@ function editPin(id) {
   document.getElementById('pfColor').value = p.color || '#7f8c8d';
   document.getElementById('pfLat').value = p.lat || '';
   document.getElementById('pfLng').value = p.lng || '';
+  document.getElementById('pfAddress').value = '';
+  document.getElementById('addressResults').innerHTML = '';
   document.getElementById('pinForm').style.display = '';
   initPinMap(p.lat, p.lng);
 }
 
 function initPinMap(lat, lng) {
   kakao.maps.load(function() {
+    if (!geocoder) geocoder = new kakao.maps.services.Geocoder();
+
     var center = new kakao.maps.LatLng(lat || 35.3475, lng || 126.4180);
     if (pinMap) {
       pinMap.setCenter(center);
@@ -410,19 +380,90 @@ function initPinMap(lat, lng) {
 
     if (pinMapMarker) pinMapMarker.setMap(null);
     if (lat && lng) {
-      pinMapMarker = new kakao.maps.Marker({ position: center, map: pinMap });
+      pinMapMarker = new kakao.maps.Marker({
+        position: center,
+        map: pinMap,
+        draggable: true
+      });
+      addMarkerDragEvent(pinMapMarker);
     }
 
     kakao.maps.event.addListener(pinMap, 'click', function(mouseEvent) {
       var latlng = mouseEvent.latLng;
-      document.getElementById('pfLat').value = latlng.getLat().toFixed(6);
-      document.getElementById('pfLng').value = latlng.getLng().toFixed(6);
-      if (pinMapMarker) pinMapMarker.setMap(null);
-      pinMapMarker = new kakao.maps.Marker({ position: latlng, map: pinMap });
+      placeMarker(latlng);
     });
 
     setTimeout(function() { pinMap.relayout(); }, 100);
   });
+}
+
+function placeMarker(latlng) {
+  document.getElementById('pfLat').value = latlng.getLat().toFixed(6);
+  document.getElementById('pfLng').value = latlng.getLng().toFixed(6);
+
+  if (pinMapMarker) pinMapMarker.setMap(null);
+  pinMapMarker = new kakao.maps.Marker({
+    position: latlng,
+    map: pinMap,
+    draggable: true
+  });
+  addMarkerDragEvent(pinMapMarker);
+}
+
+function addMarkerDragEvent(marker) {
+  kakao.maps.event.addListener(marker, 'dragend', function() {
+    var pos = marker.getPosition();
+    var newLat = pos.getLat().toFixed(6);
+    var newLng = pos.getLng().toFixed(6);
+
+    if (confirm('이 위치로 거점을 이동할까요?\n(' + newLat + ', ' + newLng + ')')) {
+      document.getElementById('pfLat').value = newLat;
+      document.getElementById('pfLng').value = newLng;
+    } else {
+      var oldLat = parseFloat(document.getElementById('pfLat').value);
+      var oldLng = parseFloat(document.getElementById('pfLng').value);
+      if (!isNaN(oldLat) && !isNaN(oldLng)) {
+        marker.setPosition(new kakao.maps.LatLng(oldLat, oldLng));
+      }
+    }
+  });
+}
+
+function searchAddress() {
+  var addr = document.getElementById('pfAddress').value.trim();
+  if (!addr) { alert('주소를 입력하세요.'); return; }
+
+  kakao.maps.load(function() {
+    if (!geocoder) geocoder = new kakao.maps.services.Geocoder();
+
+    geocoder.addressSearch(addr, function(result, status) {
+      if (status === kakao.maps.services.Status.OK && result.length > 0) {
+        var html = '';
+        result.forEach(function(r, i) {
+          html += '<div style="padding:6px 8px;border-bottom:1px solid #eee;cursor:pointer;font-size:12px;" '
+            + 'onclick="selectAddress(' + r.y + ',' + r.x + ',\'' + r.address_name.replace(/'/g, "\\'") + '\')">'
+            + '📍 ' + r.address_name
+            + (r.road_address ? '<br><span class="muted">' + r.road_address.address_name + '</span>' : '')
+            + '</div>';
+        });
+        document.getElementById('addressResults').innerHTML = html;
+      } else {
+        document.getElementById('addressResults').innerHTML = '<div class="muted" style="padding:6px;">검색 결과가 없습니다.</div>';
+      }
+    });
+  });
+}
+
+function selectAddress(lat, lng, name) {
+  document.getElementById('addressResults').innerHTML = '';
+  var latlng = new kakao.maps.LatLng(lat, lng);
+  pinMap.setCenter(latlng);
+  pinMap.setLevel(3);
+  placeMarker(latlng);
+
+  if (!document.getElementById('pfName').value.trim()) {
+    document.getElementById('pfName').value = name;
+  }
 }
 
 function onCategoryChange() {
@@ -441,7 +482,7 @@ function savePin() {
   var lat = parseFloat(document.getElementById('pfLat').value);
   var lng = parseFloat(document.getElementById('pfLng').value);
   if (!name) { alert('이름을 입력하세요.'); return; }
-  if (isNaN(lat) || isNaN(lng)) { alert('지도를 클릭하여 위치를 지정하세요.'); return; }
+  if (isNaN(lat) || isNaN(lng)) { alert('지도를 클릭하거나 주소를 검색하여 위치를 지정하세요.'); return; }
 
   var editId = document.getElementById('editPinId').value;
   var id = editId || uid();
@@ -470,124 +511,30 @@ function deletePin(id, name) {
   fbDb.ref('/pins/' + id).remove();
 }
 
-// ──── 부모 관리 ────
-function renderParentsList() {
-  var parents = getParents();
-  var children = getChildren();
-  var list = document.getElementById('parentsList');
-
-  if (!parents.length) {
-    list.innerHTML = '';
-    document.getElementById('parentsEmpty').style.display = '';
-    return;
-  }
-  document.getElementById('parentsEmpty').style.display = 'none';
-
-  var html = '';
-  parents.forEach(function(p) {
-    var childNames = (p.childIds || []).map(function(cid) {
-      var c = children.find(function(x) { return x.id === cid; });
-      return c ? (c.emoji || '') + c.name : '(삭제됨)';
-    }).join(', ') || '자녀 없음';
-
-    html += '<div class="list-item">'
-      + '<div class="emoji">👤</div>'
-      + '<div class="info">'
-      + '<div class="name">' + p.name + (p.pin ? ' 🔒' : '') + '</div>'
-      + '<div class="sub">' + childNames + '</div>'
-      + '</div>'
-      + '<div style="display:flex;gap:4px;">'
-      + '<button class="small" onclick="editParent(\'' + p.id + '\')">수정</button>'
-      + '<button class="small danger" onclick="deleteParent(\'' + p.id + '\',\'' + p.name + '\')">삭제</button>'
-      + '</div></div>';
-  });
-  list.innerHTML = html;
-}
-
-function showAddParent() {
-  document.getElementById('parentFormTitle').textContent = '부모 추가';
-  document.getElementById('editParentId').value = '';
-  document.getElementById('ppName').value = '';
-  document.getElementById('ppPin').value = '';
-  buildParentChildPicker([]);
-  document.getElementById('parentForm').style.display = '';
-}
-
-function editParent(id) {
-  var parent = getParents().find(function(p) { return p.id === id; });
-  if (!parent) return;
-  document.getElementById('parentFormTitle').textContent = '부모 수정';
-  document.getElementById('editParentId').value = id;
-  document.getElementById('ppName').value = parent.name;
-  document.getElementById('ppPin').value = parent.pin || '';
-  buildParentChildPicker(parent.childIds || []);
-  document.getElementById('parentForm').style.display = '';
-}
-
-function buildParentChildPicker(selectedIds) {
-  var children = getChildren();
-  var html = '';
-  children.forEach(function(c) {
-    var checked = selectedIds.indexOf(c.id) !== -1 ? ' checked' : '';
-    html += '<label style="display:flex;align-items:center;gap:6px;padding:4px 0;cursor:pointer;">'
-      + '<input type="checkbox" class="parentChildCb" value="' + c.id + '"' + checked + '>'
-      + '<span style="font-size:18px;">' + (c.emoji || '📍') + '</span>'
-      + '<span>' + c.name + '</span>'
-      + '</label>';
-  });
-  if (!children.length) html = '<p class="muted">먼저 아이들 탭에서 아이를 추가하세요.</p>';
-  document.getElementById('parentChildPicker').innerHTML = html;
-}
-
-function hideParentForm() {
-  document.getElementById('parentForm').style.display = 'none';
-}
-
-function saveParent() {
-  var name = document.getElementById('ppName').value.trim();
-  if (!name) { alert('이름을 입력하세요.'); return; }
-
-  var editId = document.getElementById('editParentId').value;
-  var id = editId || uid();
-
-  var childIds = [];
-  document.querySelectorAll('.parentChildCb:checked').forEach(function(cb) {
-    childIds.push(cb.value);
-  });
-
-  var data = {
-    name: name,
-    pin: document.getElementById('ppPin').value.trim(),
-    childIds: childIds
-  };
-
-  fbDb.ref('/parents/' + id).set(data).then(function() {
-    hideParentForm();
-  }).catch(function(e) { alert('저장 실패: ' + e.message); });
-}
-
-function deleteParent(id, name) {
-  if (!confirm(name + ' 부모 계정을 삭제하시겠습니까?')) return;
-  fbDb.ref('/parents/' + id).remove();
-}
-
 // ──── 설정 ────
 function loadSettings() {
   var cfg = getConfig();
-  document.getElementById('setPin').value = cfg.pin || '';
+  document.getElementById('setAdminId').value = cfg.adminId || '';
+  document.getElementById('setAdminPw').value = cfg.adminPw || '';
   document.getElementById('setInterval').value = cfg.gpsIntervalSec || 15;
   document.getElementById('setStale').value = cfg.staleMinutes || 10;
 }
 
 function saveSettings() {
   var data = {
-    pin: document.getElementById('setPin').value.trim(),
+    adminId: document.getElementById('setAdminId').value.trim(),
+    adminPw: document.getElementById('setAdminPw').value.trim(),
+    adminPin: document.getElementById('setAdminPw').value.trim(),
     gpsIntervalSec: parseInt(document.getElementById('setInterval').value) || 15,
     staleMinutes: parseInt(document.getElementById('setStale').value) || 10
   };
+  if (!data.adminId || !data.adminPw) {
+    alert('관리자 아이디와 비밀번호를 입력하세요.');
+    return;
+  }
   fbDb.ref('/config').set(data).then(function() {
     alert('설정이 저장되었습니다.');
-    localStorage.setItem('kids_pin', data.pin);
+    localStorage.setItem('kids_admin_pin', data.adminPin);
   }).catch(function(e) { alert('저장 실패: ' + e.message); });
 }
 </script>

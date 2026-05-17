@@ -29,7 +29,7 @@ const KAKAO_KEY = 'f3f8fa6decb5e2185b09d6bf70ef525b';
 })();
 
 // 기본 데이터
-var defaultConfig = { pin: '1234', gpsIntervalSec: 15, staleMinutes: 10 };
+var defaultConfig = { gpsIntervalSec: 15, staleMinutes: 10 };
 
 // Firebase 동기화
 var _cache = {};
@@ -131,44 +131,37 @@ function releaseWakeLock() {
   if (_wakeLock) { _wakeLock.release(); _wakeLock = null; }
 }
 
-// PIN 체크 게이트
-function showPinGate(onSuccess) {
-  var saved = localStorage.getItem('kids_pin');
-  if (saved) {
-    onDataReady(function() {
-      var cfg = getConfig();
-      if (!cfg.pin || saved === cfg.pin) { onSuccess(); return; }
-      localStorage.removeItem('kids_pin');
-      _showPinUI(onSuccess);
-    });
-    return;
-  }
+// 관리자 PIN 체크 (admin.html 전용)
+function showAdminPinGate(onSuccess) {
+  var saved = localStorage.getItem('kids_admin_pin');
   onDataReady(function() {
     var cfg = getConfig();
-    if (!cfg.pin) { onSuccess(); return; }
-    _showPinUI(onSuccess);
+    if (!cfg.adminPin) { onSuccess(); return; }
+    if (saved === cfg.adminPin) { onSuccess(); return; }
+    localStorage.removeItem('kids_admin_pin');
+    _showAdminPinUI(onSuccess);
   });
 }
 
-function _showPinUI(onSuccess) {
+function _showAdminPinUI(onSuccess) {
   var html = '<div class="pin-gate" id="pinGate">'
     + '<div class="pin-box">'
-    + '<div style="font-size:42px;margin-bottom:8px;">🔒</div>'
-    + '<h2 style="color:#2c3e50;margin-bottom:10px;">PIN 입력</h2>'
+    + '<div style="font-size:42px;margin-bottom:8px;">🔧</div>'
+    + '<h2 style="color:#2c3e50;margin-bottom:10px;">관리자 PIN</h2>'
     + '<input id="pinInput" type="password" inputmode="numeric" maxlength="10" placeholder="PIN" '
     + 'style="text-align:center;font-size:18px;letter-spacing:4px;" '
-    + 'onkeydown="if(event.key===\'Enter\')checkPin()">'
+    + 'onkeydown="if(event.key===\'Enter\')checkAdminPin()">'
     + '<div id="pinErr" style="color:#e74c3c;font-size:12px;margin-top:6px;min-height:16px;"></div>'
-    + '<button onclick="checkPin()" style="width:100%;margin-top:8px;padding:10px;">확인</button>'
+    + '<button onclick="checkAdminPin()" style="width:100%;margin-top:8px;padding:10px;">확인</button>'
     + '</div></div>';
   document.body.insertAdjacentHTML('beforeend', html);
   setTimeout(function() { document.getElementById('pinInput').focus(); }, 100);
 
-  window.checkPin = function() {
+  window.checkAdminPin = function() {
     var val = document.getElementById('pinInput').value;
     var cfg = getConfig();
-    if (val === cfg.pin) {
-      localStorage.setItem('kids_pin', val);
+    if (val === cfg.adminPin) {
+      localStorage.setItem('kids_admin_pin', val);
       document.getElementById('pinGate').remove();
       onSuccess();
     } else {
