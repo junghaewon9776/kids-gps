@@ -132,8 +132,57 @@
   </div>
 
   <div class="card" id="pinLegend" style="display:none;">
-    <h2>거점 목록</h2>
+    <div class="flex-between">
+      <h2>📌 거점 목록</h2>
+      <button class="success small" onclick="showAddPin()">+ 거점 추가</button>
+    </div>
     <div id="pinList"></div>
+  </div>
+
+  <!-- 거점 추가/수정 폼 -->
+  <div class="card" id="pinFormCard" style="display:none;">
+    <h2 id="pinFormTitle">거점 추가</h2>
+    <input type="hidden" id="editPinId">
+    <label>이름</label>
+    <input id="pfName" type="text" placeholder="우리집, 학원">
+    <label>카테고리</label>
+    <select id="pfCategory" onchange="onPinCategoryChange()">
+      <option value="home">🏠 집</option>
+      <option value="school">🏫 학교</option>
+      <option value="academy">📚 학원</option>
+      <option value="work">🏢 회사</option>
+      <option value="other">📍 기타</option>
+    </select>
+    <div style="display:flex;gap:6px;">
+      <div><label>이모지</label><input id="pfEmoji" type="text" value="🏠" style="width:50px;text-align:center;font-size:18px;"></div>
+      <div><label>색상</label><input id="pfColor" type="color" value="#e74c3c" style="width:50px;height:30px;"></div>
+    </div>
+    <label>주소 검색</label>
+    <div style="display:flex;gap:4px;">
+      <input id="pfAddress" type="text" placeholder="주소 입력" style="flex:1;">
+      <button class="small" onclick="searchPinAddress()">검색</button>
+    </div>
+    <div id="addressResults" style="margin-top:4px;max-height:120px;overflow-y:auto;"></div>
+    <label>좌표</label>
+    <div style="display:flex;gap:4px;">
+      <input id="pfLat" type="number" step="any" placeholder="위도">
+      <input id="pfLng" type="number" step="any" placeholder="경도">
+    </div>
+    <p class="muted" style="margin-top:4px;">또는 위 지도에서 길게 누르면 좌표가 입력됩니다</p>
+    <div style="margin-top:8px;display:flex;gap:4px;">
+      <button class="success small" onclick="savePin()">저장</button>
+      <button class="gray small" onclick="hidePinForm()">취소</button>
+    </div>
+  </div>
+
+  <!-- 내 설정 -->
+  <div class="card" id="mySettingsCard" style="display:none;">
+    <h2>⚙️ 내 설정</h2>
+    <div style="margin-top:8px;">
+      <button onclick="saveDefaultMapPos()" style="width:100%;padding:10px;background:#3498db;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">📍 현재 지도 위치를 기본으로 저장</button>
+      <p class="muted" style="margin-top:4px;text-align:center;">다음 로그인 시 이 위치에서 지도가 시작됩니다</p>
+    </div>
+    <div id="savedPosInfo" class="muted" style="margin-top:6px;text-align:center;"></div>
   </div>
 </div>
 
@@ -151,7 +200,7 @@
   </div>
 </div>
 
-<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=f3f8fa6decb5e2185b09d6bf70ef525b&autoload=false"></script>
+<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=f3f8fa6decb5e2185b09d6bf70ef525b&libraries=services&autoload=false"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
 <script src="firebase-config.js"></script>
@@ -172,14 +221,38 @@ var distanceLogs = {};
 var prevLocations = {};
 var parentShareActive = false;
 var parentWatchId = null;
+var geocoder = null;
+var longPressTimer = null;
 
 initFirebaseSync();
 onDataReady(function() { showLoginGate(); });
 
 function initMap() {
+  var defLat = 35.3475, defLng = 126.4180, defLevel = 5;
+  var shareId = currentParentId || 'admin';
+  var saved = getParentSettings(shareId);
+  if (loginMode === 'admin') {
+    var cfg = getConfig();
+    if (cfg.mapLat) { defLat = cfg.mapLat; defLng = cfg.mapLng; defLevel = cfg.mapLevel || 5; saved = cfg; }
+  }
+  if (saved && saved.mapLat) { defLat = saved.mapLat; defLng = saved.mapLng; defLevel = saved.mapLevel || 5; }
+
   map = new kakao.maps.Map(document.getElementById('map'), {
-    center: new kakao.maps.LatLng(35.3475, 126.4180), level: 5
+    center: new kakao.maps.LatLng(defLat, defLng), level: defLevel
   });
+
+  kakao.maps.event.addListener(map, 'rightclick', function(e) {
+    var lat = e.latLng.getLat();
+    var lng = e.latLng.getLng();
+    document.getElementById('pfLat').value = lat.toFixed(6);
+    document.getElementById('pfLng').value = lng.toFixed(6);
+    if (document.getElementById('pinFormCard').style.display === 'none') {
+      showAddPin();
+    }
+  });
+
+  if (!geocoder) geocoder = new kakao.maps.services.Geocoder();
+  showSavedPosInfo(saved);
   render();
   setInterval(function() { updateList(); trackDistances(); }, 5000);
 }
@@ -697,6 +770,7 @@ function doLogin() {
     authenticated = true;
     document.getElementById('logoutBtn').style.display = '';
     document.getElementById('parentShareCard').style.display = '';
+    document.getElementById('mySettingsCard').style.display = '';
     addParentFilter();
     kakao.maps.load(initMap);
     return;
@@ -712,6 +786,7 @@ function doLogin() {
     document.getElementById('logoutBtn').style.display = '';
     document.getElementById('childMgmtCard').style.display = '';
     document.getElementById('parentShareCard').style.display = '';
+    document.getElementById('mySettingsCard').style.display = '';
     kakao.maps.load(function() { initMap(); renderMyChildList(); });
     return;
   }
@@ -846,6 +921,177 @@ window.addEventListener('beforeunload', function() {
     fbDb.ref('/parentLocations/' + shareId).update({ isActive: false, timestamp: Date.now() });
   }
 });
+
+// ──── 부모별 설정 ────
+function getParentSettings(pid) {
+  var p = ((_cache.parents || {})[pid]) || {};
+  return p.settings || null;
+}
+
+function saveDefaultMapPos() {
+  if (!map) return;
+  var center = map.getCenter();
+  var level = map.getLevel();
+  var shareId = currentParentId || 'admin';
+  var path = loginMode === 'admin' ? '/config' : '/parents/' + shareId + '/settings';
+  var data = { mapLat: center.getLat(), mapLng: center.getLng(), mapLevel: level };
+
+  if (loginMode === 'admin') {
+    fbDb.ref(path + '/mapLat').set(data.mapLat);
+    fbDb.ref(path + '/mapLng').set(data.mapLng);
+    fbDb.ref(path + '/mapLevel').set(data.mapLevel);
+  } else {
+    fbDb.ref(path).set(data);
+  }
+  alert('기본 지도 위치가 저장되었습니다!');
+  showSavedPosInfo(data);
+}
+
+function showSavedPosInfo(s) {
+  var el = document.getElementById('savedPosInfo');
+  if (!el) return;
+  if (s && s.mapLat) {
+    el.textContent = '저장됨: ' + s.mapLat.toFixed(4) + ', ' + s.mapLng.toFixed(4) + ' (레벨 ' + (s.mapLevel||5) + ')';
+  } else {
+    el.textContent = '저장된 위치 없음';
+  }
+}
+
+// ──── 거점 관리 (부모용) ────
+function showAddPin() {
+  document.getElementById('pinFormTitle').textContent = '거점 추가';
+  document.getElementById('editPinId').value = '';
+  document.getElementById('pfName').value = '';
+  document.getElementById('pfCategory').value = 'home';
+  document.getElementById('pfEmoji').value = '🏠';
+  document.getElementById('pfColor').value = '#e74c3c';
+  if (!document.getElementById('pfLat').value) document.getElementById('pfLat').value = '';
+  if (!document.getElementById('pfLng').value) document.getElementById('pfLng').value = '';
+  document.getElementById('pfAddress').value = '';
+  document.getElementById('addressResults').innerHTML = '';
+  document.getElementById('pinFormCard').style.display = '';
+}
+
+function editMyPin(pinId) {
+  var pin = getPins().find(function(p) { return p.id === pinId; });
+  if (!pin) return;
+  document.getElementById('pinFormTitle').textContent = '거점 수정';
+  document.getElementById('editPinId').value = pinId;
+  document.getElementById('pfName').value = pin.name;
+  document.getElementById('pfCategory').value = pin.category || 'other';
+  document.getElementById('pfEmoji').value = pin.emoji || '📍';
+  document.getElementById('pfColor').value = pin.color || '#7f8c8d';
+  document.getElementById('pfLat').value = pin.lat || '';
+  document.getElementById('pfLng').value = pin.lng || '';
+  document.getElementById('pfAddress').value = '';
+  document.getElementById('addressResults').innerHTML = '';
+  document.getElementById('pinFormCard').style.display = '';
+}
+
+function hidePinForm() {
+  document.getElementById('pinFormCard').style.display = 'none';
+  document.getElementById('pfLat').value = '';
+  document.getElementById('pfLng').value = '';
+}
+
+function onPinCategoryChange() {
+  var cat = PIN_CATEGORIES.find(function(c) { return c.value === document.getElementById('pfCategory').value; }) || PIN_CATEGORIES[4];
+  document.getElementById('pfEmoji').value = cat.emoji;
+  document.getElementById('pfColor').value = cat.color;
+}
+
+function searchPinAddress() {
+  var addr = document.getElementById('pfAddress').value.trim();
+  if (!addr) { alert('주소를 입력하세요.'); return; }
+  if (!geocoder) geocoder = new kakao.maps.services.Geocoder();
+  geocoder.addressSearch(addr, function(result, status) {
+    if (status === kakao.maps.services.Status.OK && result.length) {
+      var html = '';
+      result.forEach(function(r) {
+        html += '<div style="padding:4px 6px;border-bottom:1px solid #eee;cursor:pointer;font-size:12px;" '
+          + 'onclick="selectPinAddr(' + r.y + ',' + r.x + ',\'' + r.address_name.replace(/'/g, "\\'") + '\')">'
+          + '📍 ' + r.address_name + '</div>';
+      });
+      document.getElementById('addressResults').innerHTML = html;
+    } else {
+      document.getElementById('addressResults').innerHTML = '<div class="muted" style="padding:4px;font-size:11px;">결과 없음</div>';
+    }
+  });
+}
+
+function selectPinAddr(lat, lng, name) {
+  document.getElementById('addressResults').innerHTML = '';
+  document.getElementById('pfLat').value = lat.toFixed ? lat.toFixed(6) : lat;
+  document.getElementById('pfLng').value = lng.toFixed ? lng.toFixed(6) : lng;
+  if (!document.getElementById('pfName').value.trim()) document.getElementById('pfName').value = name;
+  map.setCenter(new kakao.maps.LatLng(lat, lng));
+  map.setLevel(3);
+}
+
+function savePin() {
+  var name = document.getElementById('pfName').value.trim();
+  var lat = parseFloat(document.getElementById('pfLat').value);
+  var lng = parseFloat(document.getElementById('pfLng').value);
+  if (!name) { alert('이름을 입력하세요.'); return; }
+  if (isNaN(lat) || isNaN(lng)) { alert('위치를 지정하세요.\n주소 검색 또는 지도 우클릭으로 좌표를 입력하세요.'); return; }
+  var editId = document.getElementById('editPinId').value;
+  var id = editId || uid();
+  var pins = getPins();
+  var order = editId ? ((pins.find(function(p) { return p.id === editId; }) || {}).order || pins.length) : pins.length + 1;
+  var createdBy = currentParentId || 'admin';
+  fbDb.ref('/pins/' + id).set({
+    name: name, emoji: document.getElementById('pfEmoji').value || '📍',
+    category: document.getElementById('pfCategory').value || 'other',
+    color: document.getElementById('pfColor').value || '#7f8c8d',
+    lat: lat, lng: lng, order: order, createdBy: createdBy
+  }).then(function() {
+    hidePinForm();
+  }).catch(function(e) { alert('실패: ' + e.message); });
+}
+
+function deleteMyPin(pinId, pinName) {
+  if (!confirm(pinName + ' 거점을 삭제할까요?')) return;
+  fbDb.ref('/pins/' + pinId).remove();
+}
+
+// renderPins에 수정/삭제 버튼 추가 (기존 함수 덮어쓰기)
+var _origRenderPins = renderPins;
+renderPins = function() {
+  pinMarkers.forEach(function(m) { m.setMap(null); });
+  pinMarkers = [];
+  var pins = getPins();
+  if (!pins.length) { document.getElementById('pinLegend').style.display = 'none'; return; }
+  document.getElementById('pinLegend').style.display = '';
+
+  var listHtml = '';
+  var myId = currentParentId || 'admin';
+  pins.forEach(function(pin) {
+    var cat = PIN_CATEGORIES.find(function(c) { return c.value === pin.category; }) || PIN_CATEGORIES[4];
+    var color = pin.color || cat.color;
+    var emoji = pin.emoji || cat.emoji;
+
+    var marker = new kakao.maps.Marker({
+      position: new kakao.maps.LatLng(pin.lat, pin.lng),
+      map: map, image: pinMarkerImage(emoji, color), zIndex: 3
+    });
+    kakao.maps.event.addListener(marker, 'click', (function(p, c) {
+      return function() { showPinModal(p, c); };
+    })(pin, cat));
+    pinMarkers.push(marker);
+
+    var canEdit = (pin.createdBy === myId || loginMode === 'admin');
+    listHtml += '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;">'
+      + '<span style="font-size:18px;cursor:pointer;" onclick="showPinModal2(\'' + pin.id + '\')">' + emoji + '</span>'
+      + '<span style="flex:1;cursor:pointer;" onclick="showPinModal2(\'' + pin.id + '\')">' + pin.name + '</span>'
+      + '<span class="muted">(' + cat.label + ')</span>';
+    if (canEdit) {
+      listHtml += '<button class="small" onclick="editMyPin(\'' + pin.id + '\')" style="font-size:10px;">수정</button>'
+        + '<button class="small danger" onclick="deleteMyPin(\'' + pin.id + '\',\'' + pin.name + '\')" style="font-size:10px;">삭제</button>';
+    }
+    listHtml += '</div>';
+  });
+  document.getElementById('pinList').innerHTML = listHtml;
+};
 </script>
 </body>
 </html>
