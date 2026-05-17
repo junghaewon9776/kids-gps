@@ -97,6 +97,25 @@ function getConfig() {
   return _cache.config || Object.assign({}, defaultConfig);
 }
 
+// 4자리 접속 코드 생성 (숫자+대문자, 혼동문자 제외)
+function generateCode() {
+  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var children = getChildren();
+  var existing = children.map(function(c) { return c.code || ''; });
+  var code;
+  do {
+    code = '';
+    for (var i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  } while (existing.indexOf(code) !== -1);
+  return code;
+}
+
+function findChildByCode(code) {
+  if (!code) return null;
+  var upper = code.toUpperCase().trim();
+  return getChildren().find(function(c) { return (c.code || '').toUpperCase() === upper; }) || null;
+}
+
 // 유틸
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);

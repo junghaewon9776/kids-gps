@@ -4,9 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <title>위치 전송</title>
+  <title>내 위치 알려주기</title>
   <link rel="stylesheet" href="style.css">
   <style>
+    .code-input {
+      text-align:center;font-size:32px;letter-spacing:8px;padding:16px;
+      font-weight:800;text-transform:uppercase;max-width:200px;margin:0 auto;
+    }
     .pin-modal {
       position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;
       display:flex;align-items:center;justify-content:center;padding:20px;
@@ -21,58 +25,69 @@
       font-size:15px;font-weight:700;cursor:pointer;
     }
     .child-pin-btn:active { transform:scale(0.97); }
-    .my-pins-list { margin-top:8px; }
     .my-pins-list .pin-item {
       display:flex;align-items:center;gap:8px;padding:6px 8px;
       background:#f8f9fa;border-radius:6px;margin-bottom:4px;font-size:13px;
     }
     .sos-btn {
-      display:block;width:100%;padding:14px;margin-top:8px;
-      background:#e74c3c;color:#fff;border:none;border-radius:10px;
-      font-size:16px;font-weight:700;cursor:pointer;
+      display:block;width:100%;padding:16px;
+      background:#e74c3c;color:#fff;border:none;border-radius:12px;
+      font-size:18px;font-weight:700;cursor:pointer;
       animation: sos-pulse 2s infinite;
     }
     @keyframes sos-pulse {
       0%,100% { box-shadow:0 0 0 0 rgba(231,76,60,0.4); }
       50% { box-shadow:0 0 0 8px rgba(231,76,60,0); }
     }
+    .connected-banner {
+      background:linear-gradient(135deg,#27ae60,#2ecc71);
+      color:#fff;border-radius:16px;padding:20px;text-align:center;
+    }
+    .disconnect-link {
+      display:inline-block;margin-top:12px;font-size:11px;color:rgba(255,255,255,0.6);
+      text-decoration:underline;cursor:pointer;
+    }
   </style>
 </head>
 <body>
 <header>
-  <h1>📡 위치 전송</h1>
+  <h1>📡 내 위치 알려주기</h1>
   <nav><a href="index.html">홈</a></nav>
 </header>
 
 <div class="container">
-  <!-- 연락처 입력 -->
-  <div class="card child-status" id="phoneCard">
-    <div class="big-emoji">📱</div>
-    <div class="child-name">연락처를 입력하세요</div>
-    <div style="margin-top:16px;max-width:260px;margin-left:auto;margin-right:auto;">
-      <input id="phoneInput" type="tel" inputmode="tel" placeholder="010-0000-0000"
-        style="text-align:center;font-size:18px;letter-spacing:1px;padding:12px;"
-        onkeydown="if(event.key==='Enter')startWithPhone()">
-      <button onclick="startWithPhone()" style="width:100%;margin-top:10px;padding:12px;font-size:15px;font-weight:600;">위치 전송 시작</button>
-      <p class="muted" style="margin-top:8px;">부모님이 등록한 연락처와 동일해야 합니다.</p>
+  <!-- 코드 입력 -->
+  <div class="card child-status" id="codeCard">
+    <div class="big-emoji">🔑</div>
+    <div class="child-name">코드를 입력하세요</div>
+    <div style="margin-top:16px;max-width:280px;margin-left:auto;margin-right:auto;">
+      <input id="codeInput" class="code-input" type="text" maxlength="4" placeholder="A3K7"
+        autocomplete="off" autocapitalize="characters"
+        onkeydown="if(event.key==='Enter')connectWithCode()">
+      <button onclick="connectWithCode()" style="width:100%;margin-top:12px;padding:14px;font-size:16px;font-weight:700;background:#27ae60;color:#fff;border:none;border-radius:10px;cursor:pointer;">연결하기</button>
+      <p class="muted" style="margin-top:10px;">부모님한테 받은 4자리 코드를 입력해요</p>
     </div>
   </div>
 
-  <div class="card child-status" id="statusCard" style="display:none;">
-    <div class="big-emoji" id="childEmoji">📡</div>
-    <div class="child-name" id="childName">로딩 중...</div>
-    <div id="statusArea" style="margin-top:16px;">
-      <div class="gps-info">GPS 연결 중...</div>
+  <!-- 연결 완료 + GPS -->
+  <div class="card" id="statusCard" style="display:none;">
+    <div class="connected-banner">
+      <div style="font-size:48px;" id="childEmoji">📡</div>
+      <div style="font-size:22px;font-weight:800;margin-top:4px;" id="childName">...</div>
+      <div id="statusArea" style="margin-top:12px;">
+        <div style="font-size:14px;opacity:0.9;">GPS 연결 중...</div>
+      </div>
+      <span class="disconnect-link" onclick="disconnect()">연결 해제</span>
     </div>
   </div>
 
   <div class="card" id="mapCard" style="display:none;">
     <div class="map-wrap">
-      <div id="map" class="map" style="height:300px;"></div>
+      <div id="map" class="map" style="height:280px;"></div>
     </div>
   </div>
 
-  <!-- 아이 핑 (나 여기있어) -->
+  <!-- 아이 핑 -->
   <div class="card" id="childPinCard" style="display:none;">
     <button class="child-pin-btn" onclick="placeChildPin()">📍 나 여기서 놀 거야!</button>
     <div id="childPinMsg" style="display:none;margin-top:8px;text-align:center;">
@@ -83,22 +98,22 @@
     <div class="my-pins-list" id="myPinsList"></div>
   </div>
 
-  <!-- SOS 버튼 -->
+  <!-- SOS -->
   <div class="card" id="sosCard" style="display:none;text-align:center;">
     <button class="sos-btn" onclick="sendSOS()">🆘 긴급 SOS</button>
-    <p class="muted" style="margin-top:4px;">부모님에게 긴급 알림을 보냅니다</p>
+    <p class="muted" style="margin-top:6px;">부모님에게 긴급 알림을 보내요</p>
   </div>
 
   <div class="card" style="display:none;" id="keepOpenCard">
     <p style="text-align:center;font-size:13px;color:#e67e22;line-height:1.6;">
-      <b>이 페이지를 열어두세요!</b><br>
-      브라우저를 닫거나 다른 앱으로 전환하면<br>위치 전송이 중단될 수 있습니다.
+      <b>이 화면을 열어두세요!</b><br>
+      브라우저를 닫으면 위치가 안 보여요
     </p>
   </div>
 
   <!-- 거점 목록 -->
   <div class="card" id="pinLegendCard" style="display:none;">
-    <h2>📌 거점</h2>
+    <h2>📌 우리 장소</h2>
     <div id="pinLegendList"></div>
   </div>
 
@@ -106,21 +121,21 @@
   <div class="card" id="alarmCard" style="display:none;">
     <div style="text-align:center;padding:16px;">
       <div style="font-size:48px;animation:pulse-ring 0.5s infinite alternate;">🔔</div>
-      <div style="font-size:18px;font-weight:700;color:#e74c3c;margin:8px 0;">알람이 울리고 있습니다!</div>
+      <div style="font-size:18px;font-weight:700;color:#e74c3c;margin:8px 0;">부모님이 찾고 있어요!</div>
       <button onclick="stopAlarm()" style="margin-top:8px;padding:12px 32px;background:#e74c3c;color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;">알람 끄기</button>
     </div>
   </div>
 </div>
 
-<!-- 거점 상세 모달 -->
+<!-- 거점 모달 -->
 <div class="pin-modal" id="pinModal" style="display:none;" onclick="if(event.target===this)closePinModal()">
   <div class="pin-modal-box">
     <div style="font-size:36px;" id="pmEmoji"></div>
     <h3 id="pmName" style="margin:8px 0 4px;"></h3>
     <div id="pmCategory" class="muted" style="margin-bottom:12px;"></div>
     <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
-      <button onclick="naviToPinWalk()" style="background:#27ae60;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:14px;cursor:pointer;">🚶 도보</button>
-      <button onclick="naviToPinCar()" style="background:#3498db;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:14px;cursor:pointer;">🚗 차량</button>
+      <button onclick="naviToPinWalk()" style="background:#27ae60;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:14px;cursor:pointer;">🚶 걸어가기</button>
+      <button onclick="naviToPinCar()" style="background:#3498db;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:14px;cursor:pointer;">🚗 차로 가기</button>
     </div>
     <button onclick="closePinModal()" style="margin-top:12px;background:#95a5a6;color:#fff;border:none;padding:8px 20px;border-radius:6px;font-size:13px;cursor:pointer;">닫기</button>
   </div>
@@ -141,49 +156,51 @@ var lastWriteTime = 0;
 var gpsCount = 0;
 var currentLat = null, currentLng = null;
 var selectedPinData = null;
-var pendingChildPin = false;
 
 initFirebaseSync();
 
 onDataReady(function() {
-  var saved = localStorage.getItem('kids_phone');
+  var saved = localStorage.getItem('kids_code');
   if (saved) {
-    var found = findChildByPhone(saved);
+    var found = findChildByCode(saved);
     if (found) {
-      document.getElementById('phoneCard').style.display = 'none';
+      document.getElementById('codeCard').style.display = 'none';
       document.getElementById('statusCard').style.display = '';
       startTracking(found);
       return;
     }
-    localStorage.removeItem('kids_phone');
+    localStorage.removeItem('kids_code');
   }
 });
 
-function normalizePhone(p) {
-  return (p || '').replace(/[^0-9]/g, '');
-}
+function connectWithCode() {
+  var code = document.getElementById('codeInput').value.trim();
+  if (!code) { alert('코드를 입력해주세요!'); return; }
 
-function findChildByPhone(phone) {
-  var norm = normalizePhone(phone);
-  if (!norm) return null;
-  var children = getChildren();
-  return children.find(function(c) { return normalizePhone(c.phone) === norm; }) || null;
-}
-
-function startWithPhone() {
-  var phone = document.getElementById('phoneInput').value.trim();
-  if (!phone) { alert('연락처를 입력하세요.'); return; }
-
-  var found = findChildByPhone(phone);
+  var found = findChildByCode(code);
   if (!found) {
-    alert('등록되지 않은 연락처입니다.\n부모님이 먼저 자녀를 등록해야 합니다.');
+    alert('코드가 맞지 않아요.\n부모님한테 다시 확인해보세요!');
     return;
   }
 
-  localStorage.setItem('kids_phone', normalizePhone(phone));
-  document.getElementById('phoneCard').style.display = 'none';
+  localStorage.setItem('kids_code', code.toUpperCase());
+  document.getElementById('codeCard').style.display = 'none';
   document.getElementById('statusCard').style.display = '';
   startTracking(found);
+}
+
+function disconnect() {
+  if (!confirm('연결을 해제할까요?')) return;
+  localStorage.removeItem('kids_code');
+  if (watchId !== null) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+  if (childId) {
+    fbDb.ref('/locations/' + childId).update({ isActive: false, lastUpdate: Date.now() });
+  }
+  releaseWakeLock();
+  location.reload();
 }
 
 function startTracking(child) {
@@ -192,7 +209,7 @@ function startTracking(child) {
 
   document.getElementById('childEmoji').textContent = child.emoji || '📡';
   document.getElementById('childName').textContent = child.name;
-  document.title = child.name + ' - 위치 전송';
+  document.title = child.name + ' - 위치 알려주기';
 
   document.getElementById('childPinCard').style.display = '';
   document.getElementById('sosCard').style.display = '';
@@ -203,26 +220,24 @@ function startTracking(child) {
 
 function startGPS(child) {
   if (!navigator.geolocation) {
-    document.getElementById('statusArea').innerHTML = '<p style="color:#e74c3c;">이 브라우저는 GPS를 지원하지 않습니다.</p>';
+    document.getElementById('statusArea').innerHTML = '<p style="color:#fff;opacity:0.9;">이 브라우저에서는 위치를 못 찾아요 😢</p>';
     return;
   }
 
   document.getElementById('statusArea').innerHTML =
     '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:4px;">'
-    + '<span class="pulse"></span>'
-    + '<span class="status-text" id="statusText">GPS 연결 중...</span>'
+    + '<span class="pulse" style="background:#fff;"></span>'
+    + '<span id="statusText" style="font-size:14px;">위치 찾는 중...</span>'
     + '</div>'
-    + '<div class="gps-info" id="gpsInfo"></div>'
-    + '<div class="gps-info" id="sendCount" style="margin-top:4px;"></div>';
+    + '<div id="gpsInfo" style="font-size:11px;opacity:0.7;"></div>'
+    + '<div id="sendCount" style="font-size:11px;opacity:0.7;margin-top:2px;"></div>';
 
   document.getElementById('mapCard').style.display = '';
   document.getElementById('keepOpenCard').style.display = '';
 
   kakao.maps.load(function() {
-    var container = document.getElementById('map');
-    map = new kakao.maps.Map(container, {
-      center: new kakao.maps.LatLng(35.3475, 126.4180),
-      level: 5
+    map = new kakao.maps.Map(document.getElementById('map'), {
+      center: new kakao.maps.LatLng(35.3475, 126.4180), level: 5
     });
     renderPinsOnMap();
   });
@@ -238,7 +253,7 @@ function startGPS(child) {
       currentLat = lat;
       currentLng = lng;
 
-      document.getElementById('statusText').textContent = '위치 전송 중';
+      document.getElementById('statusText').textContent = '위치 보내는 중!';
       document.getElementById('gpsInfo').textContent =
         lat.toFixed(5) + ', ' + lng.toFixed(5) + ' (정확도 ' + Math.round(acc) + 'm)';
 
@@ -247,8 +262,7 @@ function startGPS(child) {
         map.setCenter(latlng);
         if (!myMarker) {
           myMarker = new kakao.maps.Marker({
-            position: latlng,
-            map: map,
+            position: latlng, map: map,
             image: emojiMarkerImage(child.emoji || '📍', child.color || '#3498db', 36)
           });
           map.setLevel(3);
@@ -261,12 +275,8 @@ function startGPS(child) {
       if (now - lastWriteTime >= intervalMs) {
         lastWriteTime = now;
         var payload = {
-          lat: lat,
-          lng: lng,
-          accuracy: Math.round(acc),
-          timestamp: now,
-          lastUpdate: now,
-          isActive: true
+          lat: lat, lng: lng, accuracy: Math.round(acc),
+          timestamp: now, lastUpdate: now, isActive: true
         };
 
         if ('getBattery' in navigator) {
@@ -281,12 +291,11 @@ function startGPS(child) {
         }
 
         gpsCount++;
-        document.getElementById('sendCount').textContent = '전송 횟수: ' + gpsCount;
+        document.getElementById('sendCount').textContent = '전송 ' + gpsCount + '회';
       }
     },
     function(err) {
-      document.getElementById('statusText').textContent = 'GPS 오류';
-      document.getElementById('statusText').style.color = '#e74c3c';
+      document.getElementById('statusText').textContent = '위치를 못 찾겠어요 😢';
       document.getElementById('gpsInfo').textContent = err.message;
     },
     { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
@@ -298,8 +307,7 @@ function startGPS(child) {
   });
 
   fbDb.ref('/locations/' + childId).onDisconnect().update({
-    isActive: false,
-    lastUpdate: firebase.database.ServerValue.TIMESTAMP
+    isActive: false, lastUpdate: firebase.database.ServerValue.TIMESTAMP
   });
 
   window.addEventListener('beforeunload', function() {
@@ -318,15 +326,12 @@ window.onDataChanged = function() {
 function renderPinsOnMap() {
   pinMarkers.forEach(function(m) { m.setMap(null); });
   pinMarkers = [];
-  var pins = getPins();
-  pins.forEach(function(pin) {
-    var cat = PIN_CATEGORIES.find(function(c) { return c.value === pin.category; }) || PIN_CATEGORIES[4];
-    var color = pin.color || cat.color;
-    var emoji = pin.emoji || cat.emoji;
 
+  getPins().forEach(function(pin) {
+    var cat = PIN_CATEGORIES.find(function(c) { return c.value === pin.category; }) || PIN_CATEGORIES[4];
     var marker = new kakao.maps.Marker({
       position: new kakao.maps.LatLng(pin.lat, pin.lng),
-      map: map, image: pinMarkerImage(emoji, color), zIndex: 3
+      map: map, image: pinMarkerImage(pin.emoji || cat.emoji, pin.color || cat.color), zIndex: 3
     });
     kakao.maps.event.addListener(marker, 'click', (function(p, c) {
       return function() { showPinModal(p, c); };
@@ -334,8 +339,7 @@ function renderPinsOnMap() {
     pinMarkers.push(marker);
   });
 
-  var childPins = getChildPins();
-  childPins.forEach(function(cp) {
+  getChildPins().forEach(function(cp) {
     if (cp.childId === childId) return;
     var c = getChildren().find(function(x) { return x.id === cp.childId; });
     var emoji = c ? (c.emoji || '📍') : '📍';
@@ -356,10 +360,34 @@ function renderPinsOnMap() {
     pinMarkers.push(marker);
   });
 
-  renderPinLegend(pins);
+  // 부모 위치도 표시
+  var plocs = getParentLocations();
+  var parents = getParents();
+  Object.keys(plocs).forEach(function(pid) {
+    var pl = plocs[pid];
+    if (!pl || !pl.lat || !pl.isActive) return;
+    if (isStale(pl.timestamp)) return;
+    var parent = parents.find(function(p) { return p.id === pid; });
+    var name = parent ? parent.name : (pid === 'admin' ? '관리자' : '보호자');
+    var marker = new kakao.maps.Marker({
+      position: new kakao.maps.LatLng(pl.lat, pl.lng),
+      map: map, image: emojiMarkerImage('👤', '#8e44ad', 32), zIndex: 6
+    });
+    var iw = new kakao.maps.InfoWindow({
+      content: '<div style="padding:8px;font-size:12px;"><b>👤 ' + name + '</b><div class="muted">' + timeAgo(pl.timestamp) + '</div></div>',
+      removable: true
+    });
+    kakao.maps.event.addListener(marker, 'click', (function(m, i) {
+      return function() { toggleInfoWindow(i, m, map); };
+    })(marker, iw));
+    pinMarkers.push(marker);
+  });
+
+  renderPinLegend();
 }
 
-function renderPinLegend(pins) {
+function renderPinLegend() {
+  var pins = getPins();
   if (!pins.length) { document.getElementById('pinLegendCard').style.display = 'none'; return; }
   document.getElementById('pinLegendCard').style.display = '';
   var html = '';
@@ -389,66 +417,44 @@ function showPinModal2(pinId) {
 }
 function closePinModal() { document.getElementById('pinModal').style.display = 'none'; selectedPinData = null; }
 function naviToPinWalk() {
-  if (!selectedPinData) return;
-  closePinModal();
+  if (!selectedPinData) return; closePinModal();
   openNaviWalk(selectedPinData.name, selectedPinData.lat, selectedPinData.lng);
 }
 function naviToPinCar() {
-  if (!selectedPinData) return;
-  closePinModal();
+  if (!selectedPinData) return; closePinModal();
   openNaviCar(selectedPinData.name, selectedPinData.lat, selectedPinData.lng);
 }
-
 function openNaviWalk(name, lat, lng) {
   var ua = navigator.userAgent;
-  if (/iPhone|iPad|Android/.test(ua)) {
-    location.href = 'kakaomap://route?ep=' + lat + ',' + lng + '&by=FOOT';
-  } else {
-    window.open('https://map.kakao.com/link/to/' + encodeURIComponent(name) + ',' + lat + ',' + lng);
-  }
+  if (/iPhone|iPad|Android/.test(ua)) location.href = 'kakaomap://route?ep=' + lat + ',' + lng + '&by=FOOT';
+  else window.open('https://map.kakao.com/link/to/' + encodeURIComponent(name) + ',' + lat + ',' + lng);
 }
 function openNaviCar(name, lat, lng) {
   var ua = navigator.userAgent;
-  if (/iPhone|iPad|Android/.test(ua)) {
-    location.href = 'kakaomap://route?ep=' + lat + ',' + lng + '&by=CAR';
-  } else {
-    window.open('https://map.kakao.com/link/to/' + encodeURIComponent(name) + ',' + lat + ',' + lng);
-  }
+  if (/iPhone|iPad|Android/.test(ua)) location.href = 'kakaomap://route?ep=' + lat + ',' + lng + '&by=CAR';
+  else window.open('https://map.kakao.com/link/to/' + encodeURIComponent(name) + ',' + lat + ',' + lng);
 }
 
 // ──── 아이 핑 ────
 function placeChildPin() {
-  if (!currentLat || !currentLng) { alert('GPS 위치를 아직 받지 못했습니다.'); return; }
-  pendingChildPin = true;
+  if (!currentLat || !currentLng) { alert('아직 위치를 못 찾았어요!'); return; }
   document.getElementById('childPinMsg').style.display = '';
   document.getElementById('childPinMsgInput').value = '';
   document.getElementById('childPinMsgInput').focus();
 }
-
 function confirmChildPin() {
   if (!currentLat || !childId) return;
   var msg = document.getElementById('childPinMsgInput').value.trim();
-  var pinId = uid();
-  fbDb.ref('/childPins/' + pinId).set({
-    childId: childId,
-    lat: currentLat,
-    lng: currentLng,
-    message: msg || '나 여기있어!',
-    timestamp: Date.now()
+  fbDb.ref('/childPins/' + uid()).set({
+    childId: childId, lat: currentLat, lng: currentLng,
+    message: msg || '나 여기있어!', timestamp: Date.now()
   });
   document.getElementById('childPinMsg').style.display = 'none';
-  pendingChildPin = false;
-  renderMyPins();
 }
-
-function cancelChildPin() {
-  document.getElementById('childPinMsg').style.display = 'none';
-  pendingChildPin = false;
-}
+function cancelChildPin() { document.getElementById('childPinMsg').style.display = 'none'; }
 
 function renderMyPins() {
-  var all = getChildPins();
-  var mine = all.filter(function(p) { return p.childId === childId; });
+  var mine = getChildPins().filter(function(p) { return p.childId === childId; });
   var list = document.getElementById('myPinsList');
   if (!mine.length) { list.innerHTML = ''; return; }
   var html = '<div style="margin-top:8px;font-size:12px;color:#888;margin-bottom:4px;">내 핑</div>';
@@ -462,92 +468,56 @@ function renderMyPins() {
   });
   list.innerHTML = html;
 }
-
-function removeChildPin(pinId) {
-  fbDb.ref('/childPins/' + pinId).remove();
-}
+function removeChildPin(pinId) { fbDb.ref('/childPins/' + pinId).remove(); }
 
 // ──── SOS ────
 function sendSOS() {
   if (!childId) return;
-  if (!confirm('긴급 SOS를 부모님에게 보낼까요?')) return;
+  if (!confirm('긴급 SOS를 보낼까요?')) return;
   fbDb.ref('/alerts/' + childId).set({
-    ring: true,
-    sos: true,
-    timestamp: Date.now(),
-    lat: currentLat,
-    lng: currentLng
+    ring: true, sos: true, timestamp: Date.now(),
+    lat: currentLat, lng: currentLng
   });
-  alert('SOS 신호를 보냈습니다!');
+  alert('SOS를 보냈어요!');
 }
 
 // ──── 알람 ────
-var alarmCtx = null;
-var alarmNodes = [];
-var alarmInterval = null;
+var alarmCtx = null, alarmNodes = [], alarmInterval = null;
 
 function listenAlarm() {
   fbDb.ref('/alerts/' + childId).on('value', function(snap) {
     var data = snap.val();
-    if (data && data.ring && !data.sos) {
-      playAlarm();
-    }
+    if (data && data.ring && !data.sos) playAlarm();
   });
 }
-
 function playAlarm() {
   document.getElementById('alarmCard').style.display = '';
-
-  if (!alarmCtx) {
-    alarmCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
+  if (!alarmCtx) alarmCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (alarmCtx.state === 'suspended') alarmCtx.resume();
-
   stopAlarmSound();
-
   function beep() {
-    var osc = alarmCtx.createOscillator();
-    var gain = alarmCtx.createGain();
-    osc.type = 'square';
-    osc.frequency.value = 1200;
-    gain.gain.value = 1;
-    osc.connect(gain);
-    gain.connect(alarmCtx.destination);
-
+    var osc = alarmCtx.createOscillator(), gain = alarmCtx.createGain();
+    osc.type = 'square'; osc.frequency.value = 1200; gain.gain.value = 1;
+    osc.connect(gain); gain.connect(alarmCtx.destination);
     var now = alarmCtx.currentTime;
     gain.gain.setValueAtTime(1, now);
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
-    osc.start(now);
-    osc.stop(now + 0.3);
-    alarmNodes.push(osc);
-
-    var osc2 = alarmCtx.createOscillator();
-    var gain2 = alarmCtx.createGain();
-    osc2.type = 'square';
-    osc2.frequency.value = 1600;
-    gain2.gain.value = 1;
-    osc2.connect(gain2);
-    gain2.connect(alarmCtx.destination);
+    osc.start(now); osc.stop(now + 0.3); alarmNodes.push(osc);
+    var osc2 = alarmCtx.createOscillator(), gain2 = alarmCtx.createGain();
+    osc2.type = 'square'; osc2.frequency.value = 1600; gain2.gain.value = 1;
+    osc2.connect(gain2); gain2.connect(alarmCtx.destination);
     gain2.gain.setValueAtTime(0.01, now);
     gain2.gain.setValueAtTime(1, now + 0.3);
     gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.55);
-    osc2.start(now + 0.3);
-    osc2.stop(now + 0.6);
-    alarmNodes.push(osc2);
+    osc2.start(now + 0.3); osc2.stop(now + 0.6); alarmNodes.push(osc2);
   }
-
-  beep();
-  alarmInterval = setInterval(beep, 800);
-
+  beep(); alarmInterval = setInterval(beep, 800);
   setTimeout(function() { stopAlarm(); }, 30000);
 }
-
 function stopAlarmSound() {
   if (alarmInterval) { clearInterval(alarmInterval); alarmInterval = null; }
-  alarmNodes.forEach(function(n) { try { n.stop(); } catch(e) {} });
-  alarmNodes = [];
+  alarmNodes.forEach(function(n) { try { n.stop(); } catch(e) {} }); alarmNodes = [];
 }
-
 function stopAlarm() {
   stopAlarmSound();
   document.getElementById('alarmCard').style.display = 'none';

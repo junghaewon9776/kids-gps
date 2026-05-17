@@ -98,9 +98,8 @@
       <h2>내 자녀 관리</h2>
       <button class="success small" onclick="showAddMyChild()">+ 자녀 등록</button>
     </div>
+    <div id="myChildList"></div>
     <div id="myChildForm" style="display:none;margin-top:8px;padding:10px;background:#f8f9fa;border-radius:6px;">
-      <label>자녀 연락처</label>
-      <input id="mcPhone" type="tel" inputmode="tel" placeholder="010-0000-0000">
       <label>이름</label>
       <input id="mcName" type="text" placeholder="이름">
       <label>이모지</label>
@@ -713,7 +712,7 @@ function doLogin() {
     document.getElementById('logoutBtn').style.display = '';
     document.getElementById('childMgmtCard').style.display = '';
     document.getElementById('parentShareCard').style.display = '';
-    kakao.maps.load(initMap);
+    kakao.maps.load(function() { initMap(); renderMyChildList(); });
     return;
   }
 
@@ -753,11 +752,42 @@ function getVisibleChildren() {
 }
 
 // ──── 부모: 자녀 등록 ────
+function renderMyChildList() {
+  if (loginMode !== 'parent' || !currentParentId) return;
+  var parent = getParents().find(function(p) { return p.id === currentParentId; });
+  var ids = parent ? (parent.childIds || []) : [];
+  var children = getChildren();
+  var el = document.getElementById('myChildList');
+  if (!ids.length) { el.innerHTML = '<div class="muted" style="padding:8px;text-align:center;">등록된 자녀가 없습니다.</div>'; return; }
+  var html = '';
+  ids.forEach(function(cid) {
+    var c = children.find(function(x) { return x.id === cid; });
+    if (!c) return;
+    html += '<div style="display:flex;align-items:center;gap:8px;padding:8px;background:#f8f9fa;border-radius:6px;margin-top:6px;">'
+      + '<span style="font-size:20px;">' + (c.emoji||'📍') + '</span>'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div style="font-weight:600;font-size:13px;">' + c.name + '</div>'
+      + '<div style="font-size:12px;color:#888;">코드: <b style="color:#2c3e50;font-size:14px;letter-spacing:2px;">' + (c.code||'없음') + '</b></div>'
+      + '</div>'
+      + '<button onclick="copyCode(\'' + (c.code||'') + '\')" style="background:#3498db;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">복사</button>'
+      + '</div>';
+  });
+  el.innerHTML = html;
+}
+
+function copyCode(code) {
+  if (!code) return;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(code).then(function() { alert('코드 ' + code + ' 복사됨!'); });
+  } else {
+    prompt('이 코드를 아이에게 알려주세요:', code);
+  }
+}
+
 function showAddMyChild() {
   var idx = getChildren().length;
   document.getElementById('mcEmoji').value = CHILD_EMOJIS[idx % CHILD_EMOJIS.length];
   document.getElementById('mcColor').value = CHILD_COLORS[idx % CHILD_COLORS.length];
-  document.getElementById('mcPhone').value = '';
   document.getElementById('mcName').value = '';
   buildMyChildPickers();
   document.getElementById('myChildForm').style.display = '';
@@ -774,19 +804,15 @@ function buildMyChildPickers() {
 }
 function hideMyChildForm() { document.getElementById('myChildForm').style.display = 'none'; }
 function saveMyChild() {
-  var phone = document.getElementById('mcPhone').value.trim();
   var name = document.getElementById('mcName').value.trim();
-  if (!phone || !name) { alert('연락처와 이름을 입력하세요.'); return; }
-  var norm = phone.replace(/[^0-9]/g, '');
-  var existing = getChildren().find(function(c) { return (c.phone||'').replace(/[^0-9]/g,'') === norm; });
-  var childId = existing ? existing.id : uid();
-  if (!existing) {
-    fbDb.ref('/children/' + childId).set({
-      name: name, emoji: document.getElementById('mcEmoji').value || '🐻',
-      color: document.getElementById('mcColor').value || '#FF6B6B',
-      phone: phone, order: getChildren().length + 1
-    });
-  }
+  if (!name) { alert('이름을 입력하세요.'); return; }
+  var childId = uid();
+  var code = generateCode();
+  fbDb.ref('/children/' + childId).set({
+    name: name, emoji: document.getElementById('mcEmoji').value || '🐻',
+    color: document.getElementById('mcColor').value || '#FF6B6B',
+    code: code, order: getChildren().length + 1
+  });
   var parent = getParents().find(function(p) { return p.id === currentParentId; });
   if (parent) {
     var ids = parent.childIds || [];
@@ -797,7 +823,11 @@ function saveMyChild() {
     }
   }
   hideMyChildForm();
-  setTimeout(render, 500);
+  setTimeout(function() {
+    render();
+    renderMyChildList();
+    alert('자녀 등록 완료!\n접속 코드: ' + code + '\n\n이 코드를 아이에게 알려주세요.');
+  }, 500);
 }
 function removeMyChild(childId, childName) {
   if (!confirm(childName + ' 해제?')) return;
@@ -806,7 +836,7 @@ function removeMyChild(childId, childName) {
     var ids = (parent.childIds||[]).filter(function(id) { return id !== childId; });
     fbDb.ref('/parents/' + currentParentId + '/childIds').set(ids);
     visibleChildIds = ids;
-    setTimeout(render, 500);
+    setTimeout(function() { render(); renderMyChildList(); }, 500);
   }
 }
 

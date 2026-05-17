@@ -43,6 +43,7 @@
 <div class="container" style="max-width:600px;">
   <div class="tabs" style="font-size:12px;">
     <button class="tab-btn active" onclick="switchTab('parents')" style="font-size:12px;">👨‍👩‍👧 부모</button>
+    <button class="tab-btn" onclick="switchTab('children')" style="font-size:12px;">👶 자녀</button>
     <button class="tab-btn" onclick="switchTab('pins')" style="font-size:12px;">📌 거점</button>
     <button class="tab-btn" onclick="switchTab('settings')" style="font-size:12px;">⚙️ 설정</button>
   </div>
@@ -74,6 +75,34 @@
     <div class="card compact-card" id="parentChildrenCard" style="display:none;">
       <h2>부모별 자녀</h2>
       <div id="parentChildrenList" style="font-size:12px;"></div>
+    </div>
+  </div>
+
+  <!-- 자녀 탭 -->
+  <div class="tab-panel" id="tab-children">
+    <div class="card compact-card">
+      <div class="flex-between">
+        <h2>자녀 목록</h2>
+        <button class="success small" onclick="showAddChild()">+ 추가</button>
+      </div>
+      <div id="childrenList"></div>
+      <div id="childrenEmpty" class="empty" style="display:none;font-size:12px;">자녀를 추가하세요.</div>
+    </div>
+    <div class="card compact-card" id="childForm" style="display:none;">
+      <h2 id="childFormTitle">자녀 추가</h2>
+      <input type="hidden" id="editChildId">
+      <label>이름</label>
+      <input id="cfName" type="text" placeholder="이름" style="font-size:12px;">
+      <label>이모지</label>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin:4px 0;" id="cfEmojiPicker"></div>
+      <input id="cfEmoji" type="text" value="🐻" style="width:50px;text-align:center;font-size:18px;">
+      <label>색상</label>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin:4px 0;" id="cfColorPicker"></div>
+      <input id="cfColor" type="color" value="#FF6B6B" style="width:50px;height:30px;">
+      <div style="margin-top:8px;display:flex;gap:4px;">
+        <button class="success small" onclick="saveChild()">저장</button>
+        <button class="gray small" onclick="hideChildForm()">취소</button>
+      </div>
     </div>
   </div>
 
@@ -193,7 +222,7 @@ window.onDataChanged = function() {
   if (document.getElementById('adminPanel').style.display !== 'none') render();
 };
 
-var TAB_LABELS = { parents: '부모', pins: '거점', settings: '설정' };
+var TAB_LABELS = { parents: '부모', children: '자녀', pins: '거점', settings: '설정' };
 function switchTab(name) {
   document.querySelectorAll('.tab-btn').forEach(function(b) {
     b.classList.toggle('active', b.textContent.includes(TAB_LABELS[name] || ''));
@@ -204,6 +233,7 @@ function switchTab(name) {
 
 function render() {
   renderParentsList();
+  renderChildrenList();
   renderPins();
   renderParentChildren();
 }
@@ -243,12 +273,109 @@ function renderParentChildren() {
       + '<b>👤 ' + p.name + '</b>';
     (p.childIds||[]).forEach(function(cid) {
       var c = children.find(function(x){return x.id===cid;});
-      if(c) html += '<div style="padding:1px 0;">' + (c.emoji||'📍') + ' ' + c.name + ' <span class="sub">' + (c.phone||'') + '</span></div>';
+      if(c) html += '<div style="padding:1px 0;">' + (c.emoji||'📍') + ' ' + c.name + ' <span class="sub" style="color:#3498db;font-weight:600;">[' + (c.code||'?') + ']</span></div>';
     });
     if(!(p.childIds||[]).length) html += '<div class="sub">자녀 없음</div>';
     html += '</div>';
   });
   document.getElementById('parentChildrenList').innerHTML = html;
+}
+
+// ──── 자녀 ────
+function renderChildrenList() {
+  var children = getChildren();
+  var list = document.getElementById('childrenList');
+  if (!children.length) { list.innerHTML = ''; document.getElementById('childrenEmpty').style.display = ''; return; }
+  document.getElementById('childrenEmpty').style.display = 'none';
+  var html = '';
+  children.forEach(function(c) {
+    html += '<div class="compact-item">'
+      + '<span style="font-size:18px;">' + (c.emoji||'📍') + '</span>'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div class="name">' + c.name + '</div>'
+      + '<div class="sub">코드: <b style="color:#2c3e50;font-size:13px;letter-spacing:2px;">' + (c.code||'없음') + '</b></div></div>'
+      + '<button class="small" onclick="editChild(\'' + c.id + '\')">수정</button>'
+      + '<button class="small" onclick="regenCode(\'' + c.id + '\')">코드갱신</button>'
+      + '<button class="small danger" onclick="deleteChild(\'' + c.id + '\',\'' + c.name + '\')">삭제</button>'
+      + '</div>';
+  });
+  list.innerHTML = html;
+}
+
+function showAddChild() {
+  var idx = getChildren().length;
+  document.getElementById('childFormTitle').textContent = '자녀 추가';
+  document.getElementById('editChildId').value = '';
+  document.getElementById('cfName').value = '';
+  document.getElementById('cfEmoji').value = CHILD_EMOJIS[idx % CHILD_EMOJIS.length];
+  document.getElementById('cfColor').value = CHILD_COLORS[idx % CHILD_COLORS.length];
+  buildChildPickers();
+  document.getElementById('childForm').style.display = '';
+}
+function editChild(id) {
+  var c = getChildren().find(function(x){return x.id===id;});
+  if(!c) return;
+  document.getElementById('childFormTitle').textContent = '자녀 수정';
+  document.getElementById('editChildId').value = id;
+  document.getElementById('cfName').value = c.name;
+  document.getElementById('cfEmoji').value = c.emoji||'🐻';
+  document.getElementById('cfColor').value = c.color||'#FF6B6B';
+  buildChildPickers();
+  document.getElementById('childForm').style.display = '';
+}
+function buildChildPickers() {
+  var eh = ''; CHILD_EMOJIS.forEach(function(e) {
+    eh += '<button type="button" onclick="document.getElementById(\'cfEmoji\').value=\'' + e + '\'" style="font-size:18px;background:none;border:1px solid #ddd;border-radius:4px;padding:3px 6px;cursor:pointer;">' + e + '</button>';
+  });
+  document.getElementById('cfEmojiPicker').innerHTML = eh;
+  var ch = ''; CHILD_COLORS.forEach(function(c) {
+    ch += '<button type="button" onclick="document.getElementById(\'cfColor\').value=\'' + c + '\'" style="width:24px;height:24px;border-radius:50%;background:' + c + ';border:2px solid #fff;box-shadow:0 0 0 1px #ccc;cursor:pointer;padding:0;"></button>';
+  });
+  document.getElementById('cfColorPicker').innerHTML = ch;
+}
+function hideChildForm() { document.getElementById('childForm').style.display = 'none'; }
+function saveChild() {
+  var name = document.getElementById('cfName').value.trim();
+  if (!name) { alert('이름을 입력하세요.'); return; }
+  var editId = document.getElementById('editChildId').value;
+  var id = editId || uid();
+  var old = editId ? getChildren().find(function(c){return c.id===editId;}) : null;
+  var code = old ? (old.code || generateCode()) : generateCode();
+  fbDb.ref('/children/' + id).set({
+    name: name, emoji: document.getElementById('cfEmoji').value||'🐻',
+    color: document.getElementById('cfColor').value||'#FF6B6B',
+    code: code, order: old ? (old.order||0) : getChildren().length+1
+  }).then(function() {
+    hideChildForm();
+    if (!editId) alert('접속 코드: ' + code + '\n\n이 코드를 아이에게 알려주세요.');
+  }).catch(function(e){alert('실패: '+e.message);});
+}
+function regenCode(id) {
+  var c = getChildren().find(function(x){return x.id===id;});
+  if (!c) return;
+  if (!confirm(c.name + '의 코드를 새로 만들까요?\n기존 코드는 사용할 수 없게 됩니다.')) return;
+  var newCode = generateCode();
+  fbDb.ref('/children/' + id + '/code').set(newCode).then(function() {
+    alert('새 코드: ' + newCode);
+  });
+}
+function deleteChild(id, name) {
+  if (!confirm(name + ' 삭제?\n이 자녀의 위치 데이터도 삭제됩니다.')) return;
+  fbDb.ref('/children/' + id).remove();
+  fbDb.ref('/locations/' + id).remove();
+  fbDb.ref('/childPins').once('value', function(snap) {
+    var pins = snap.val() || {};
+    Object.keys(pins).forEach(function(k) {
+      if (pins[k].childId === id) fbDb.ref('/childPins/' + k).remove();
+    });
+  });
+  var parents = getParents();
+  parents.forEach(function(p) {
+    if ((p.childIds||[]).indexOf(id) !== -1) {
+      var ids = p.childIds.filter(function(x){return x!==id;});
+      fbDb.ref('/parents/' + p.id + '/childIds').set(ids);
+    }
+  });
 }
 
 function showAddParent() {
