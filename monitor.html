@@ -1071,6 +1071,10 @@ function showEditChild(childId) {
   document.getElementById('ceName').value = c.name;
   document.getElementById('cePhone').value = c.phone || '';
   document.getElementById('childEditForm').style.display = '';
+  setTimeout(function() {
+    document.getElementById('childEditForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.getElementById('ceName').focus();
+  }, 100);
 }
 function hideEditChild() { document.getElementById('childEditForm').style.display = 'none'; }
 function saveEditChild() {
