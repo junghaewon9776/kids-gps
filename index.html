@@ -6,6 +6,47 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <title>아이들 위치추적</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    .hero-btn {
+      display: block;
+      background: linear-gradient(135deg, #27ae60, #2ecc71);
+      color: #fff;
+      text-decoration: none;
+      border-radius: 20px;
+      padding: 40px 20px;
+      text-align: center;
+      max-width: 400px;
+      margin: 20px auto;
+      box-shadow: 0 8px 30px rgba(39,174,96,0.35);
+      transition: transform 0.15s;
+    }
+    .hero-btn:active { transform: scale(0.97); }
+    .hero-btn .hero-icon { font-size: 72px; margin-bottom: 8px; }
+    .hero-btn .hero-title { font-size: 24px; font-weight: 800; }
+    .hero-btn .hero-desc { font-size: 14px; opacity: 0.9; margin-top: 6px; }
+    .sub-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+      max-width: 400px; margin: 12px auto;
+    }
+    .sub-card {
+      background: #fff;
+      padding: 18px 12px;
+      border-radius: 12px;
+      text-decoration: none;
+      color: #2c3e50;
+      text-align: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+    .sub-card .icon { font-size: 28px; margin-bottom: 4px; }
+    .sub-card .title { font-weight: 600; font-size: 14px; }
+    .sub-card .desc { font-size: 11px; color: #888; margin-top: 2px; }
+    .admin-link {
+      text-align: center; margin-top: 20px; padding-bottom: 20px;
+    }
+    .admin-link a {
+      font-size: 11px; color: #bbb; text-decoration: none;
+    }
+  </style>
 </head>
 <body>
 <header>
@@ -14,40 +55,27 @@
 </header>
 
 <div class="container">
-  <div class="menu-grid">
-    <a href="monitor.html" class="menu-card" style="grid-column:span 2;background:#27ae60;color:#fff;">
+  <a href="child.html" class="hero-btn">
+    <div class="hero-icon">📡</div>
+    <div class="hero-title">위치 전송 시작</div>
+    <div class="hero-desc">아이 폰에서 눌러주세요</div>
+  </a>
+
+  <div class="sub-grid">
+    <a href="monitor.html" class="sub-card">
       <div class="icon">🗺️</div>
-      <div class="title">위치 모니터링</div>
-      <div class="desc" style="color:#e8f5e9;">부모/관리자 로그인 → 실시간 위치 확인</div>
+      <div class="title">모니터링</div>
+      <div class="desc">부모 로그인</div>
     </a>
-    <a href="admin.html" class="menu-card">
-      <div class="icon">⚙️</div>
-      <div class="title">관리</div>
-      <div class="desc">부모 계정 · 거점 · 설정</div>
-    </a>
-    <a href="child.html" class="menu-card">
-      <div class="icon">📡</div>
+    <a href="child.html" class="sub-card">
+      <div class="icon">📱</div>
       <div class="title">위치 전송</div>
       <div class="desc">아이 폰에서 열기</div>
     </a>
   </div>
 
-  <div class="card" style="max-width:500px;margin:0 auto;">
-    <h2>📱 사용 방법</h2>
-    <div style="font-size:13px;line-height:1.8;">
-      <p><b>1단계:</b> 관리 페이지에서 부모 계정(ID+비번) 생성</p>
-      <p><b>2단계:</b> 부모가 모니터링 페이지에서 로그인 → 자녀 등록(연락처)</p>
-      <p><b>3단계:</b> 아이 폰에서 위치 전송 페이지 열고 → 연락처 입력하면 GPS 전송 시작</p>
-      <p><b>4단계:</b> 부모 모니터링에서 실시간 위치 확인, 벨 울리기, 길찾기</p>
-    </div>
-  </div>
-
-  <div class="card" style="max-width:500px;margin:0 auto;">
-    <h2>🔥 Firebase 연동</h2>
-    <p style="font-size:13px;line-height:1.6;">
-      모든 기기에서 <b>실시간 동기화</b>됩니다.<br>
-      아이 폰에서 위치를 전송하면 모니터링 페이지에 즉시 반영됩니다.
-    </p>
+  <div class="admin-link">
+    <a href="admin.html">🔧 관리자</a>
   </div>
 </div>
 
