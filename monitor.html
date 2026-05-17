@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>아이들 위치 모니터링</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>📍 위치 모니터링</h1>
+  <nav>
+    <a href="index.html">홈</a>
+    <a href="monitor.html" class="active">모니터링</a>
+    <a href="admin.html">관리</a>
+  </nav>
+</header>
+
+<div class="container" style="max-width:1000px;">
+  <div class="card">
+    <div class="map-wrap">
+      <div id="map" class="map" style="height:500px;"></div>
+      <div class="map-ctrl map-ctrl-right">
+        <button class="map-btn" onclick="zoomIn()">+</button>
+        <button class="map-btn" onclick="zoomOut()">−</button>
+      </div>
+      <div class="map-ctrl map-ctrl-bottom">
+        <button class="map-btn" style="width:auto;padding:0 12px;font-size:13px;font-weight:600;" onclick="fitAll()">전체 보기</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="flex-between">
+      <h2>아이들 상태</h2>
+      <span class="muted" id="lastRefresh"></span>
+    </div>
+    <div id="childList"></div>
+    <div id="emptyMsg" class="empty" style="display:none;">
+      등록된 아이가 없습니다. <a href="admin.html">관리 페이지</a>에서 추가하세요.
+    </div>
+  </div>
+
+  <div class="card" id="pinLegend" style="display:none;">
+    <h2>거점 목록</h2>
+    <div id="pinList"></div>
+  </div>
+</div>
+
+<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=f3f8fa6decb5e2185b09d6bf70ef525b&autoload=false"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="common.js"></script>
+<script>
+var map = null;
+var childMarkers = {};
+var childOverlays = {};
+var pinMarkers = [];
+var authenticated = false;
+var loginMode = null; // 'admin' or 'parent'
+var currentParentId = null;
+var visibleChildIds = null; // null = 전체
+
+initFirebaseSync();
+onDataReady(function() {
+  showLoginGate();
+});
+
+function initMap() {
+  map = new kakao.maps.Map(document.getElementById('map'), {
+    center: new kakao.maps.LatLng(35.3475, 126.4180),
+    level: 5
+  });
+  render();
+  setInterval(function() { updateList(); }, 5000);
+}
+
+window.onDataChanged = function() {
+  if (authenticated && map) render();
+};
+
+function render() {
+  renderChildren();
+  renderPins();
+  updateList();
+  document.getElementById('lastRefresh').textContent = new Date().toLocaleTimeString('ko-KR');
+}
+
+function renderChildren() {
+  var children = getVisibleChildren();
+  var locations = getLocations();
+
+  children.forEach(function(child) {
+    var loc = locations[child.id];
+    if (!loc || !loc.lat) {
+      if (childMarkers[child.id]) {
+        childMarkers[child.id].setMap(null);
+        delete childMarkers[child.id];
+      }
+      if (childOverlays[child.id]) {
+        childOverlays[child.id].setMap(null);
+        delete childOverlays[child.id];
+      }
+      return;
+    }
+
+    var pos = new kakao.maps.LatLng(loc.lat, loc.lng);
+    var stale = isStale(loc.lastUpdate);
+    var color = stale ? '#bdc3c7' : (child.color || '#3498db');
+
+    if (childMarkers[child.id]) {
+      childMarkers[child.id].setPosition(pos);
+      childMarkers[child.id].setImage(emojiMarkerImage(child.emoji || '📍', color, 36));
+    } else {
+      var marker = new kakao.maps.Marker({
+        position: pos,
+        map: map,
+        image: emojiMarkerImage(child.emoji || '📍', color, 36),
+        zIndex: 10
+      });
+
+      var iwContent = buildInfoWindow(child, loc);
+      var iw = new kakao.maps.InfoWindow({ content: iwContent, removable: true });
+      kakao.maps.event.addListener(marker, 'click', (function(m, i, c) {
+        return function() {
+          i.setContent(buildInfoWindow(c, getLocations()[c.id]));
+          toggleInfoWindow(i, m, map);
+        };
+      })(marker, iw, child));
+
+      childMarkers[child.id] = marker;
+    }
+
+    // 이름 오버레이
+    if (childOverlays[child.id]) {
+      childOverlays[child.id].setPosition(pos);
+      childOverlays[child.id].setMap(map);
+    } else {
+      var nameHtml = '<div style="padding:2px 6px;background:' + color + ';color:#fff;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap;transform:translateY(4px);">'
+        + (child.emoji || '') + ' ' + child.name + '</div>';
+      var overlay = new kakao.maps.CustomOverlay({
+        position: pos,
+        content: nameHtml,
+        yAnchor: 0,
+        map: map,
+        zIndex: 5
+      });
+      childOverlays[child.id] = overlay;
+    }
+  });
+}
+
+function buildInfoWindow(child, loc) {
+  if (!loc) return '<div style="padding:8px;">위치 정보 없음</div>';
+  var stale = isStale(loc.lastUpdate);
+  var statusColor = stale ? '#e74c3c' : '#27ae60';
+  var statusText = stale ? '오프라인' : '온라인';
+  if (loc.isActive === false) { statusColor = '#e74c3c'; statusText = '오프라인'; }
+
+  var html = '<div style="padding:10px;min-width:160px;font-size:13px;line-height:1.6;">'
+    + '<div style="font-weight:700;font-size:14px;margin-bottom:4px;">' + (child.emoji || '') + ' ' + child.name + '</div>'
+    + '<div><span style="color:' + statusColor + ';">● ' + statusText + '</span></div>'
+    + '<div>마지막: ' + timeAgo(loc.lastUpdate) + '</div>'
+    + '<div>정확도: ' + (loc.accuracy || '?') + 'm</div>';
+  if (loc.batteryLevel != null) {
+    html += '<div>배터리: ' + loc.batteryLevel + '%</div>';
+  }
+  html += '<div style="margin-top:6px;">'
+    + '<button onclick="openKakaoNavi(\'' + child.name + '\',' + loc.lat + ',' + loc.lng + ')" '
+    + 'style="background:#3498db;color:#fff;border:none;padding:4px 10px;border-radius:4px;font-size:11px;cursor:pointer;">길찾기</button>'
+    + ' <button onclick="ringChild(\'' + child.id + '\',\'' + child.name + '\')" '
+    + 'style="background:#e74c3c;color:#fff;border:none;padding:4px 10px;border-radius:4px;font-size:11px;cursor:pointer;">🔔 벨 울리기</button>'
+    + '</div></div>';
+  return html;
+}
+
+function renderPins() {
+  pinMarkers.forEach(function(m) { m.setMap(null); });
+  pinMarkers = [];
+
+  var pins = getPins();
+  if (!pins.length) {
+    document.getElementById('pinLegend').style.display = 'none';
+    return;
+  }
+  document.getElementById('pinLegend').style.display = '';
+
+  var listHtml = '';
+  pins.forEach(function(pin) {
+    var cat = PIN_CATEGORIES.find(function(c) { return c.value === pin.category; }) || PIN_CATEGORIES[4];
+    var color = pin.color || cat.color;
+    var emoji = pin.emoji || cat.emoji;
+
+    var marker = new kakao.maps.Marker({
+      position: new kakao.maps.LatLng(pin.lat, pin.lng),
+      map: map,
+      image: pinMarkerImage(emoji, color),
+      zIndex: 3
+    });
+
+    var iwContent = '<div style="padding:8px;font-size:13px;">'
+      + '<b>' + emoji + ' ' + pin.name + '</b><br>'
+      + '<span style="color:#888;">' + cat.label + '</span>'
+      + '</div>';
+    var iw = new kakao.maps.InfoWindow({ content: iwContent, removable: true });
+    kakao.maps.event.addListener(marker, 'click', (function(m, i) {
+      return function() { toggleInfoWindow(i, m, map); };
+    })(marker, iw));
+
+    pinMarkers.push(marker);
+    listHtml += '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;">'
+      + '<span style="font-size:18px;">' + emoji + '</span>'
+      + '<span>' + pin.name + '</span>'
+      + '<span class="muted">(' + cat.label + ')</span>'
+      + '</div>';
+  });
+  document.getElementById('pinList').innerHTML = listHtml;
+}
+
+function updateList() {
+  var children = getVisibleChildren();
+  var locations = getLocations();
+
+  if (!children.length) {
+    document.getElementById('childList').innerHTML = '';
+    document.getElementById('emptyMsg').style.display = '';
+    return;
+  }
+  document.getElementById('emptyMsg').style.display = 'none';
+
+  var html = '';
+  children.forEach(function(child) {
+    var loc = locations[child.id];
+    var stale = !loc || isStale(loc.lastUpdate);
+    var active = loc && loc.isActive !== false && !stale;
+    var cls = active ? 'list-item online' : 'list-item offline';
+
+    html += '<div class="' + cls + '" onclick="focusChild(\'' + child.id + '\')" style="cursor:pointer;">'
+      + '<div class="emoji">' + (child.emoji || '📍') + '</div>'
+      + '<div class="info">'
+      + '<div class="name">' + child.name + '</div>'
+      + '<div class="sub">';
+
+    if (loc && loc.lat) {
+      html += (active ? '<span style="color:#27ae60;">● 온라인</span>' : '<span style="color:#e74c3c;">● 오프라인</span>')
+        + ' · ' + timeAgo(loc.lastUpdate);
+      if (loc.batteryLevel != null) html += ' · 🔋' + loc.batteryLevel + '%';
+      if (loc.accuracy) html += ' · 정확도 ' + loc.accuracy + 'm';
+    } else {
+      html += '위치 정보 없음';
+    }
+
+    html += '</div>'
+      + '<button onclick="event.stopPropagation();ringChild(\'' + child.id + '\',\'' + child.name + '\')" '
+      + 'style="background:#e74c3c;color:#fff;border:none;padding:6px 10px;border-radius:8px;font-size:12px;cursor:pointer;white-space:nowrap;">🔔</button>'
+      + '</div>';
+  });
+  document.getElementById('childList').innerHTML = html;
+}
+
+function ringChild(childId, childName) {
+  if (!confirm(childName + ' 폰에서 벨을 울릴까요?')) return;
+  fbDb.ref('/alerts/' + childId).set({
+    ring: true,
+    timestamp: Date.now()
+  });
+  alert(childName + ' 폰에 벨 신호를 보냈습니다.\n아이 폰에서 페이지가 열려있어야 울립니다.');
+  setTimeout(function() {
+    fbDb.ref('/alerts/' + childId).remove();
+  }, 30000);
+}
+
+function focusChild(id) {
+  var loc = getLocations()[id];
+  if (!loc || !loc.lat) return;
+  map.setCenter(new kakao.maps.LatLng(loc.lat, loc.lng));
+  map.setLevel(3);
+  if (childMarkers[id]) {
+    var children = getChildren();
+    var child = children.find(function(c) { return c.id === id; });
+    if (child) {
+      var iwContent = buildInfoWindow(child, loc);
+      var iw = new kakao.maps.InfoWindow({ content: iwContent, removable: true });
+      toggleInfoWindow(iw, childMarkers[id], map);
+    }
+  }
+}
+
+function fitAll() {
+  if (!map) return;
+  var bounds = new kakao.maps.LatLngBounds();
+  var hasPoints = false;
+
+  var locations = getLocations();
+  getVisibleChildren().forEach(function(c) {
+    var loc = locations[c.id];
+    if (loc && loc.lat) {
+      bounds.extend(new kakao.maps.LatLng(loc.lat, loc.lng));
+      hasPoints = true;
+    }
+  });
+  getPins().forEach(function(p) {
+    if (p.lat) {
+      bounds.extend(new kakao.maps.LatLng(p.lat, p.lng));
+      hasPoints = true;
+    }
+  });
+
+  if (hasPoints) map.setBounds(bounds);
+}
+
+function zoomIn() { if (map) map.setLevel(Math.max(1, map.getLevel() - 1)); }
+function zoomOut() { if (map) map.setLevel(Math.min(14, map.getLevel() + 1)); }
+
+// ──── 로그인 게이트 ────
+function showLoginGate() {
+  var parents = getParents();
+  var hasParents = parents.length > 0;
+
+  if (!hasParents) {
+    showPinGate(function() {
+      loginMode = 'admin';
+      authenticated = true;
+      kakao.maps.load(initMap);
+    });
+    return;
+  }
+
+  var html = '<div class="pin-gate" id="loginGate">'
+    + '<div class="pin-box" style="max-width:320px;">'
+    + '<div style="font-size:42px;margin-bottom:8px;">👋</div>'
+    + '<h2 style="color:#2c3e50;margin-bottom:16px;">로그인</h2>'
+    + '<button onclick="loginAsAdmin()" style="width:100%;padding:12px;margin-bottom:8px;background:#2c3e50;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;">🔧 관리자</button>'
+    + '<div style="color:#aaa;font-size:12px;margin:8px 0;">── 또는 부모 선택 ──</div>';
+
+  parents.forEach(function(p) {
+    var childNames = getChildNamesForParent(p);
+    html += '<button onclick="loginAsParent(\'' + p.id + '\')" '
+      + 'style="width:100%;padding:10px;margin-bottom:6px;background:#27ae60;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">'
+      + '👤 ' + p.name
+      + '<div style="font-size:11px;font-weight:400;opacity:0.8;margin-top:2px;">' + childNames + '</div>'
+      + '</button>';
+  });
+
+  html += '</div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function getChildNamesForParent(parent) {
+  var children = getChildren();
+  var ids = parent.childIds || [];
+  return children.filter(function(c) { return ids.indexOf(c.id) !== -1; })
+    .map(function(c) { return (c.emoji || '') + c.name; }).join(', ') || '자녀 없음';
+}
+
+function loginAsAdmin() {
+  document.getElementById('loginGate').remove();
+  showPinGate(function() {
+    loginMode = 'admin';
+    visibleChildIds = null;
+    authenticated = true;
+    addParentFilter();
+    kakao.maps.load(initMap);
+  });
+}
+
+function loginAsParent(parentId) {
+  var parent = getParents().find(function(p) { return p.id === parentId; });
+  if (!parent) return;
+
+  document.getElementById('loginGate').remove();
+
+  if (parent.pin) {
+    var html = '<div class="pin-gate" id="parentPinGate">'
+      + '<div class="pin-box">'
+      + '<div style="font-size:42px;margin-bottom:8px;">🔒</div>'
+      + '<h2 style="color:#2c3e50;margin-bottom:10px;">' + parent.name + ' PIN 입력</h2>'
+      + '<input id="parentPinInput" type="password" inputmode="numeric" maxlength="10" placeholder="PIN" '
+      + 'style="text-align:center;font-size:18px;letter-spacing:4px;" '
+      + 'onkeydown="if(event.key===\'Enter\')checkParentPin()">'
+      + '<div id="parentPinErr" style="color:#e74c3c;font-size:12px;margin-top:6px;min-height:16px;"></div>'
+      + '<button onclick="checkParentPin()" style="width:100%;margin-top:8px;padding:10px;">확인</button>'
+      + '<button onclick="backToLogin()" style="width:100%;margin-top:6px;padding:8px;background:#95a5a6;color:#fff;border:none;border-radius:6px;cursor:pointer;">뒤로</button>'
+      + '</div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+    setTimeout(function() { document.getElementById('parentPinInput').focus(); }, 100);
+
+    window._pendingParentId = parentId;
+    window.checkParentPin = function() {
+      var val = document.getElementById('parentPinInput').value;
+      if (val === parent.pin) {
+        document.getElementById('parentPinGate').remove();
+        enterParentMode(parentId);
+      } else {
+        document.getElementById('parentPinErr').textContent = 'PIN이 올바르지 않습니다';
+        document.getElementById('parentPinInput').value = '';
+      }
+    };
+  } else {
+    enterParentMode(parentId);
+  }
+}
+
+function backToLogin() {
+  var gate = document.getElementById('parentPinGate');
+  if (gate) gate.remove();
+  showLoginGate();
+}
+
+function enterParentMode(parentId) {
+  loginMode = 'parent';
+  currentParentId = parentId;
+  var parent = getParents().find(function(p) { return p.id === parentId; });
+  visibleChildIds = parent ? (parent.childIds || []) : [];
+  authenticated = true;
+  kakao.maps.load(initMap);
+}
+
+function addParentFilter() {
+  var parents = getParents();
+  if (!parents.length) return;
+
+  var filterHtml = '<div style="margin-bottom:8px;">'
+    + '<select id="parentFilter" onchange="applyParentFilter()" style="width:100%;">'
+    + '<option value="all">👁 전체 보기</option>';
+  parents.forEach(function(p) {
+    filterHtml += '<option value="' + p.id + '">👤 ' + p.name + '</option>';
+  });
+  filterHtml += '</select></div>';
+
+  var h2 = document.querySelector('#childList');
+  if (h2) h2.insertAdjacentHTML('beforebegin', filterHtml);
+}
+
+function applyParentFilter() {
+  var val = document.getElementById('parentFilter').value;
+  if (val === 'all') {
+    visibleChildIds = null;
+  } else {
+    var parent = getParents().find(function(p) { return p.id === val; });
+    visibleChildIds = parent ? (parent.childIds || []) : [];
+  }
+  render();
+}
+
+function getVisibleChildren() {
+  var children = getChildren();
+  if (!visibleChildIds) return children;
+  return children.filter(function(c) { return visibleChildIds.indexOf(c.id) !== -1; });
+}
+</script>
+</body>
+</html>

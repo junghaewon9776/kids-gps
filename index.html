@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>아이들 위치추적</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>📍 아이들 위치추적</h1>
+  <span id="syncStatus" style="font-size:11px;opacity:0.7;">연결 중...</span>
+</header>
+
+<div class="container">
+  <div class="menu-grid">
+    <a href="monitor.html" class="menu-card" style="grid-column:span 2;background:#27ae60;color:#fff;">
+      <div class="icon">🗺️</div>
+      <div class="title">위치 모니터링</div>
+      <div class="desc" style="color:#e8f5e9;">아이들 실시간 위치 + 거점 확인</div>
+    </a>
+    <a href="admin.html" class="menu-card">
+      <div class="icon">⚙️</div>
+      <div class="title">관리</div>
+      <div class="desc">아이 등록 · 거점 · 설정</div>
+    </a>
+    <a href="#" class="menu-card" id="childLinksCard" onclick="toggleChildLinks();return false;">
+      <div class="icon">📱</div>
+      <div class="title">전송 링크</div>
+      <div class="desc">아이별 GPS 전송 페이지</div>
+    </a>
+  </div>
+
+  <div class="card" id="childLinksPanel" style="display:none;max-width:500px;margin:0 auto;">
+    <h2>📱 아이별 전송 링크</h2>
+    <p class="muted" style="margin-bottom:8px;">아이 폰에서 아래 링크를 열면 위치 전송이 시작됩니다.</p>
+    <div id="childLinkList"></div>
+    <div id="noChildMsg" class="empty" style="display:none;">
+      등록된 아이가 없습니다. <a href="admin.html">관리 페이지</a>에서 추가하세요.
+    </div>
+  </div>
+
+  <div class="card" style="max-width:500px;margin:0 auto;">
+    <h2>🔥 Firebase 연동</h2>
+    <p style="font-size:13px;line-height:1.6;">
+      모든 기기에서 <b>실시간 동기화</b>됩니다.<br>
+      아이 폰에서 위치를 전송하면 모니터링 페이지에 즉시 반영됩니다.
+    </p>
+    <p class="muted" style="margin-top:8px;">
+      모니터링/관리 = PIN 필요 · 위치 전송 = 링크만 있으면 접근 가능
+    </p>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="common.js"></script>
+<script>
+initFirebaseSync();
+onDataReady(function() {
+  document.getElementById('syncStatus').textContent = '✅ 연결됨';
+  renderChildLinks();
+});
+
+window.onDataChanged = renderChildLinks;
+
+function toggleChildLinks() {
+  var panel = document.getElementById('childLinksPanel');
+  panel.style.display = panel.style.display === 'none' ? '' : 'none';
+}
+
+function renderChildLinks() {
+  var children = getChildren();
+  var list = document.getElementById('childLinkList');
+  var msg = document.getElementById('noChildMsg');
+
+  if (!children.length) {
+    list.innerHTML = '';
+    msg.style.display = '';
+    return;
+  }
+  msg.style.display = 'none';
+
+  var base = location.href.replace(/\/[^\/]*$/, '/');
+  var html = '';
+  children.forEach(function(c) {
+    var url = base + 'child.html?id=' + c.id;
+    html += '<div style="padding:8px 0;border-bottom:1px solid #eee;display:flex;align-items:center;gap:8px;">'
+      + '<span style="font-size:20px;">' + (c.emoji || '📍') + '</span>'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div style="font-weight:600;">' + c.name + '</div>'
+      + '<div style="font-size:11px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + url + '</div>'
+      + '</div>'
+      + '<button class="small" onclick="navigator.clipboard.writeText(\'' + url + '\');this.textContent=\'복사됨!\';setTimeout(()=>this.textContent=\'복사\',1500)">복사</button>'
+      + '<a href="' + url + '" class="small btn" style="text-decoration:none;font-size:11px;">열기</a>'
+      + '</div>';
+  });
+  list.innerHTML = html;
+}
+</script>
+</body>
+</html>

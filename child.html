@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>위치 전송</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>📡 위치 전송</h1>
+  <nav><a href="index.html">홈</a></nav>
+</header>
+
+<div class="container">
+  <div class="card child-status" id="statusCard">
+    <div class="big-emoji" id="childEmoji">📡</div>
+    <div class="child-name" id="childName">로딩 중...</div>
+    <div id="statusArea" style="margin-top:16px;">
+      <div class="gps-info">Firebase 연결 중...</div>
+    </div>
+  </div>
+
+  <div class="card" id="mapCard" style="display:none;">
+    <div class="map-wrap">
+      <div id="map" class="map" style="height:300px;"></div>
+    </div>
+  </div>
+
+  <div class="card" style="display:none;" id="keepOpenCard">
+    <p style="text-align:center;font-size:13px;color:#e67e22;line-height:1.6;">
+      <b>이 페이지를 열어두세요!</b><br>
+      브라우저를 닫거나 다른 앱으로 전환하면<br>위치 전송이 중단될 수 있습니다.
+    </p>
+  </div>
+
+  <!-- 알람 울릴 때 표시 -->
+  <div class="card" id="alarmCard" style="display:none;">
+    <div style="text-align:center;padding:16px;">
+      <div style="font-size:48px;animation:pulse-ring 0.5s infinite alternate;">🔔</div>
+      <div style="font-size:18px;font-weight:700;color:#e74c3c;margin:8px 0;">알람이 울리고 있습니다!</div>
+      <button onclick="stopAlarm()" style="margin-top:8px;padding:12px 32px;background:#e74c3c;color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;">알람 끄기</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=f3f8fa6decb5e2185b09d6bf70ef525b&autoload=false"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="common.js"></script>
+<script>
+var childId = new URLSearchParams(location.search).get('id');
+if (!childId) {
+  document.getElementById('childName').textContent = '잘못된 접근';
+  document.getElementById('statusArea').innerHTML = '<p style="color:#e74c3c;">URL에 ?id=xxx 파라미터가 필요합니다.</p>';
+}
+
+var map = null, myMarker = null;
+var watchId = null;
+var lastWriteTime = 0;
+var gpsCount = 0;
+
+if (childId) {
+  initFirebaseSync();
+  onDataReady(function() {
+    var children = getChildren();
+    var child = children.find(function(c) { return c.id === childId; });
+    if (!child) {
+      document.getElementById('childName').textContent = '등록되지 않은 아이';
+      document.getElementById('statusArea').innerHTML = '<p style="color:#e74c3c;">admin 페이지에서 먼저 아이를 등록하세요.</p>';
+      return;
+    }
+
+    document.getElementById('childEmoji').textContent = child.emoji || '📡';
+    document.getElementById('childName').textContent = child.name;
+    document.title = child.name + ' - 위치 전송';
+
+    startGPS(child);
+  });
+}
+
+function startGPS(child) {
+  if (!navigator.geolocation) {
+    document.getElementById('statusArea').innerHTML = '<p style="color:#e74c3c;">이 브라우저는 GPS를 지원하지 않습니다.</p>';
+    return;
+  }
+
+  document.getElementById('statusArea').innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:4px;">'
+    + '<span class="pulse"></span>'
+    + '<span class="status-text" id="statusText">GPS 연결 중...</span>'
+    + '</div>'
+    + '<div class="gps-info" id="gpsInfo"></div>'
+    + '<div class="gps-info" id="sendCount" style="margin-top:4px;"></div>';
+
+  document.getElementById('mapCard').style.display = '';
+  document.getElementById('keepOpenCard').style.display = '';
+
+  kakao.maps.load(function() {
+    var container = document.getElementById('map');
+    map = new kakao.maps.Map(container, {
+      center: new kakao.maps.LatLng(35.3475, 126.4180),
+      level: 5
+    });
+  });
+
+  var cfg = getConfig();
+  var intervalMs = (cfg.gpsIntervalSec || 15) * 1000;
+
+  watchId = navigator.geolocation.watchPosition(
+    function(pos) {
+      var lat = pos.coords.latitude;
+      var lng = pos.coords.longitude;
+      var acc = pos.coords.accuracy;
+
+      document.getElementById('statusText').textContent = '위치 전송 중';
+      document.getElementById('gpsInfo').textContent =
+        lat.toFixed(5) + ', ' + lng.toFixed(5) + ' (정확도 ' + Math.round(acc) + 'm)';
+
+      if (map) {
+        var latlng = new kakao.maps.LatLng(lat, lng);
+        map.setCenter(latlng);
+        if (!myMarker) {
+          myMarker = new kakao.maps.Marker({
+            position: latlng,
+            map: map,
+            image: emojiMarkerImage(child.emoji || '📍', child.color || '#3498db', 36)
+          });
+          map.setLevel(3);
+        } else {
+          myMarker.setPosition(latlng);
+        }
+      }
+
+      var now = Date.now();
+      if (now - lastWriteTime >= intervalMs) {
+        lastWriteTime = now;
+        var payload = {
+          lat: lat,
+          lng: lng,
+          accuracy: Math.round(acc),
+          timestamp: now,
+          lastUpdate: now,
+          isActive: true
+        };
+
+        if ('getBattery' in navigator) {
+          navigator.getBattery().then(function(b) {
+            payload.batteryLevel = Math.round(b.level * 100);
+            fbDb.ref('/locations/' + childId).set(payload);
+          }).catch(function() {
+            fbDb.ref('/locations/' + childId).set(payload);
+          });
+        } else {
+          fbDb.ref('/locations/' + childId).set(payload);
+        }
+
+        gpsCount++;
+        document.getElementById('sendCount').textContent = '전송 횟수: ' + gpsCount;
+      }
+    },
+    function(err) {
+      document.getElementById('statusText').textContent = 'GPS 오류';
+      document.getElementById('statusText').style.color = '#e74c3c';
+      document.getElementById('gpsInfo').textContent = err.message;
+    },
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+  );
+
+  requestWakeLock();
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible' && watchId && !_wakeLock) requestWakeLock();
+  });
+
+  fbDb.ref('/locations/' + childId).onDisconnect().update({
+    isActive: false,
+    lastUpdate: firebase.database.ServerValue.TIMESTAMP
+  });
+
+  window.addEventListener('beforeunload', function() {
+    fbDb.ref('/locations/' + childId).update({ isActive: false, lastUpdate: Date.now() });
+  });
+
+  // 벨 울리기 감시
+  listenAlarm();
+}
+
+// ──── 무음에서도 울리는 알람 (Web Audio API) ────
+var alarmCtx = null;
+var alarmNodes = [];
+var alarmInterval = null;
+
+function listenAlarm() {
+  fbDb.ref('/alerts/' + childId).on('value', function(snap) {
+    var data = snap.val();
+    if (data && data.ring) {
+      playAlarm();
+    }
+  });
+}
+
+function playAlarm() {
+  document.getElementById('alarmCard').style.display = '';
+
+  if (!alarmCtx) {
+    alarmCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (alarmCtx.state === 'suspended') alarmCtx.resume();
+
+  stopAlarmSound();
+
+  // 반복 알람음: 0.3초 울리고 0.2초 쉬고
+  function beep() {
+    var osc = alarmCtx.createOscillator();
+    var gain = alarmCtx.createGain();
+    osc.type = 'square';
+    osc.frequency.value = 1200;
+    gain.gain.value = 1;
+    osc.connect(gain);
+    gain.connect(alarmCtx.destination);
+
+    var now = alarmCtx.currentTime;
+    gain.gain.setValueAtTime(1, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+    osc.start(now);
+    osc.stop(now + 0.3);
+    alarmNodes.push(osc);
+
+    var osc2 = alarmCtx.createOscillator();
+    var gain2 = alarmCtx.createGain();
+    osc2.type = 'square';
+    osc2.frequency.value = 1600;
+    gain2.gain.value = 1;
+    osc2.connect(gain2);
+    gain2.connect(alarmCtx.destination);
+    gain2.gain.setValueAtTime(0.01, now);
+    gain2.gain.setValueAtTime(1, now + 0.3);
+    gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.55);
+    osc2.start(now + 0.3);
+    osc2.stop(now + 0.6);
+    alarmNodes.push(osc2);
+  }
+
+  beep();
+  alarmInterval = setInterval(beep, 800);
+
+  // 30초 후 자동 정지
+  setTimeout(function() { stopAlarm(); }, 30000);
+}
+
+function stopAlarmSound() {
+  if (alarmInterval) { clearInterval(alarmInterval); alarmInterval = null; }
+  alarmNodes.forEach(function(n) { try { n.stop(); } catch(e) {} });
+  alarmNodes = [];
+}
+
+function stopAlarm() {
+  stopAlarmSound();
+  document.getElementById('alarmCard').style.display = 'none';
+  fbDb.ref('/alerts/' + childId).remove();
+}
+</script>
+</body>
+</html>
