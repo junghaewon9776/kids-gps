@@ -175,6 +175,16 @@
       </div>
     </div>
     <div class="card compact-card">
+      <h2>관리자 계정 변경</h2>
+      <label>이메일</label>
+      <input id="setAdminEmail" type="email" style="font-size:12px;">
+      <label>새 비밀번호</label>
+      <input id="setAdminPw" type="text" placeholder="변경할 비밀번호" style="font-size:12px;">
+      <div style="margin-top:8px;">
+        <button class="success small" onclick="saveAdminAccount()">저장</button>
+      </div>
+    </div>
+    <div class="card compact-card">
       <h2>Firebase</h2>
       <div id="fbStatus" class="muted" style="font-size:11px;">확인 중...</div>
     </div>
@@ -197,14 +207,19 @@ onDataReady(function() {
     try {
       var cred = JSON.parse(saved);
       var cfg = getConfig();
-      if (cfg.adminEmail === cred.email && cfg.adminPw === cred.pw) {
+      if (cred.ts && Date.now() - cred.ts < 3600000 && cfg.adminEmail === cred.email && cfg.adminPw === cred.pw) {
         enterAdmin();
         return;
       }
     } catch(e) {}
     localStorage.removeItem('kids_admin_login');
   }
-  document.getElementById('adminEmail').focus();
+  var savedEmail = localStorage.getItem('kids_admin_email');
+  if (savedEmail) document.getElementById('adminEmail').value = savedEmail;
+  setTimeout(function() {
+    if (savedEmail) document.getElementById('adminPw').focus();
+    else document.getElementById('adminEmail').focus();
+  }, 100);
 });
 
 function adminLogin() {
@@ -217,13 +232,15 @@ function adminLogin() {
     fbDb.ref('/config/adminEmail').set(email);
     fbDb.ref('/config/adminPw').set(pw);
     fbDb.ref('/config/adminId').set(email);
-    localStorage.setItem('kids_admin_login', JSON.stringify({email:email, pw:pw}));
+    localStorage.setItem('kids_admin_email', email);
+    localStorage.setItem('kids_admin_login', JSON.stringify({email:email, pw:pw, ts:Date.now()}));
     enterAdmin();
     return;
   }
 
   if (email === cfg.adminEmail && pw === cfg.adminPw) {
-    localStorage.setItem('kids_admin_login', JSON.stringify({email:email, pw:pw}));
+    localStorage.setItem('kids_admin_email', email);
+    localStorage.setItem('kids_admin_login', JSON.stringify({email:email, pw:pw, ts:Date.now()}));
     enterAdmin();
   } else {
     document.getElementById('adminErr').textContent = '이메일 또는 비밀번호가 틀립니다.';
@@ -631,6 +648,8 @@ function loadSettings() {
   var cfg = getConfig();
   document.getElementById('setInterval').value = cfg.gpsIntervalSec || 15;
   document.getElementById('setStale').value = cfg.staleMinutes || 10;
+  document.getElementById('setAdminEmail').value = cfg.adminEmail || '';
+  document.getElementById('setAdminPw').value = cfg.adminPw || '';
 }
 function saveSettings() {
   var cfg = getConfig();
@@ -639,6 +658,27 @@ function saveSettings() {
     staleMinutes: parseInt(document.getElementById('setStale').value) || 10
   });
   fbDb.ref('/config').set(data).then(function(){ alert('저장됨'); }).catch(function(e){ alert('실패: '+e.message); });
+}
+function saveAdminAccount() {
+  var email = document.getElementById('setAdminEmail').value.trim();
+  var pw = document.getElementById('setAdminPw').value.trim();
+  if (!email) { alert('이메일을 입력하세요'); return; }
+  if (!pw) { alert('비밀번호를 입력하세요'); return; }
+  var updates = { adminEmail: email, adminPw: pw, adminId: email };
+  fbDb.ref('/config').update(updates).then(function() {
+    var saved = localStorage.getItem('kids_admin_login');
+    if (saved) {
+      try {
+        var cred = JSON.parse(saved);
+        cred.id = email;
+        cred.pw = pw;
+        cred.ts = Date.now();
+        localStorage.setItem('kids_admin_login', JSON.stringify(cred));
+      } catch(e) {}
+    }
+    localStorage.setItem('kids_admin_id', email);
+    alert('관리자 계정이 변경되었습니다');
+  }).catch(function(e) { alert('실패: ' + e.message); });
 }
 </script>
 </body>

@@ -232,7 +232,12 @@ onDataReady(function() {
   if (saved) {
     try {
       var cred = JSON.parse(saved);
-      autoLogin(cred.id, cred.pw);
+      if (cred.ts && Date.now() - cred.ts < 3600000) {
+        autoLogin(cred.id, cred.pw);
+      } else {
+        localStorage.removeItem('kids_monitor_login');
+        showLoginGate();
+      }
     } catch(e) {
       localStorage.removeItem('kids_monitor_login');
       showLoginGate();
@@ -817,18 +822,24 @@ function showLoginGate() {
     + '<button onclick="doLogin()" style="width:100%;margin-top:6px;padding:10px;font-size:14px;font-weight:600;">로그인</button>'
     + '</div></div>';
   document.body.insertAdjacentHTML('beforeend', html);
-  setTimeout(function() { document.getElementById('loginId').focus(); }, 100);
+  var savedId = localStorage.getItem('kids_monitor_id');
+  if (savedId) document.getElementById('loginId').value = savedId;
+  setTimeout(function() {
+    if (savedId) document.getElementById('loginPw').focus();
+    else document.getElementById('loginId').focus();
+  }, 100);
 }
 
 function doLogin() {
   var id = document.getElementById('loginId').value.trim();
   var pw = document.getElementById('loginPw').value;
   if (!id || !pw) { document.getElementById('loginErr').textContent = '입력하세요.'; return; }
+  localStorage.setItem('kids_monitor_id', id);
 
   var cfg = getConfig();
   if ((cfg.adminId === id || cfg.adminEmail === id) && (cfg.adminPw === pw)) {
     document.getElementById('loginGate').remove();
-    localStorage.setItem('kids_monitor_login', JSON.stringify({id:id, pw:pw}));
+    localStorage.setItem('kids_monitor_login', JSON.stringify({id:id, pw:pw, ts:Date.now()}));
     loginMode = 'admin';
     visibleChildIds = null;
     authenticated = true;
@@ -843,7 +854,7 @@ function doLogin() {
   var parent = getParents().find(function(p) { return p.loginId === id; });
   if (parent && parent.loginPw === pw) {
     document.getElementById('loginGate').remove();
-    localStorage.setItem('kids_monitor_login', JSON.stringify({id:id, pw:pw}));
+    localStorage.setItem('kids_monitor_login', JSON.stringify({id:id, pw:pw, ts:Date.now()}));
     loginMode = 'parent';
     currentParentId = parent.id;
     visibleChildIds = parent.childIds || [];
