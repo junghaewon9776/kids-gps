@@ -73,7 +73,7 @@
       </div>
     </div>
     <div class="card compact-card" id="parentChildrenCard" style="display:none;">
-      <h2>부모별 자녀</h2>
+      <h2>부모별 자녀 배정</h2>
       <div id="parentChildrenList" style="font-size:12px;"></div>
     </div>
   </div>
@@ -269,16 +269,54 @@ function renderParentChildren() {
   document.getElementById('parentChildrenCard').style.display = '';
   var html = '';
   parents.forEach(function(p) {
-    html += '<div style="margin-bottom:6px;padding:6px;background:#f8f9fa;border-radius:4px;">'
-      + '<b>👤 ' + p.name + '</b>';
-    (p.childIds||[]).forEach(function(cid) {
+    var assigned = p.childIds || [];
+    html += '<div style="margin-bottom:10px;padding:8px;background:#f8f9fa;border-radius:6px;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'
+      + '<b>👤 ' + p.name + '</b>'
+      + '<button class="small success" onclick="showAssignChild(\'' + p.id + '\')">+ 배정</button>'
+      + '</div>';
+    if (!assigned.length) {
+      html += '<div class="sub" style="padding:4px 0;">자녀 없음</div>';
+    }
+    assigned.forEach(function(cid) {
       var c = children.find(function(x){return x.id===cid;});
-      if(c) html += '<div style="padding:1px 0;">' + (c.emoji||'📍') + ' ' + c.name + ' <span class="sub" style="color:#3498db;font-weight:600;">[' + (c.code||'?') + ']</span></div>';
+      if(c) html += '<div style="display:flex;align-items:center;gap:6px;padding:3px 0;">'
+        + '<span>' + (c.emoji||'📍') + '</span>'
+        + '<span style="flex:1;">' + c.name + ' <span class="sub" style="color:#3498db;font-weight:600;">[' + (c.code||'?') + ']</span></span>'
+        + '<button class="small danger" onclick="unassignChild(\'' + p.id + '\',\'' + cid + '\',\'' + c.name + '\')" style="font-size:10px;">해제</button>'
+        + '</div>';
     });
-    if(!(p.childIds||[]).length) html += '<div class="sub">자녀 없음</div>';
     html += '</div>';
   });
   document.getElementById('parentChildrenList').innerHTML = html;
+}
+
+function showAssignChild(parentId) {
+  var parent = getParents().find(function(p){return p.id===parentId;});
+  if (!parent) return;
+  var assigned = parent.childIds || [];
+  var children = getChildren().filter(function(c) { return assigned.indexOf(c.id) === -1; });
+  if (!children.length) { alert('배정할 수 있는 자녀가 없습니다.\n(이미 모두 배정됨)'); return; }
+  var list = children.map(function(c, i) { return (i+1) + '. ' + (c.emoji||'') + ' ' + c.name; }).join('\n');
+  var pick = prompt(parent.name + '에게 배정할 자녀 번호:\n\n' + list + '\n\n(쉼표로 여러 명 가능: 1,2,3)');
+  if (!pick) return;
+  var nums = pick.split(/[,\s]+/).map(function(n){return parseInt(n)-1;}).filter(function(n){return n>=0 && n<children.length;});
+  if (!nums.length) return;
+  var ids = assigned.slice();
+  nums.forEach(function(n) {
+    if (ids.indexOf(children[n].id) === -1) ids.push(children[n].id);
+  });
+  fbDb.ref('/parents/' + parentId + '/childIds').set(ids);
+  var names = nums.map(function(n){return children[n].name;}).join(', ');
+  alert(names + ' 배정 완료!');
+}
+
+function unassignChild(parentId, childId, childName) {
+  if (!confirm(childName + ' 배정 해제?')) return;
+  var parent = getParents().find(function(p){return p.id===parentId;});
+  if (!parent) return;
+  var ids = (parent.childIds||[]).filter(function(id){return id!==childId;});
+  fbDb.ref('/parents/' + parentId + '/childIds').set(ids);
 }
 
 // ──── 자녀 ────
