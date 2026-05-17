@@ -146,6 +146,31 @@
     <div id="childPinsList"></div>
   </div>
 
+  <!-- 부모 핑 -->
+  <div class="card" id="parentPingCard" style="display:none;">
+    <div class="flex-between">
+      <h2>📍 내 핑</h2>
+      <button class="success small" onclick="showParentPing()">+ 핑 찍기</button>
+    </div>
+    <div id="parentPingForm" style="display:none;margin-top:8px;padding:10px;background:#f8f9fa;border-radius:6px;">
+      <div id="ppingLocLabel" style="font-size:13px;color:#27ae60;font-weight:600;text-align:center;margin-bottom:6px;">📍 위치를 선택하세요</div>
+      <div style="display:flex;gap:4px;margin-bottom:6px;">
+        <input id="ppingAddr" type="text" placeholder="주소·장소 검색" style="flex:1;font-size:13px;padding:8px;">
+        <button class="small" onclick="searchParentPingAddr()">검색</button>
+      </div>
+      <div id="ppingAddrResults" style="max-height:100px;overflow-y:auto;margin-bottom:6px;"></div>
+      <div style="font-size:11px;color:#aaa;margin-bottom:6px;text-align:center;">또는 지도를 눌러서 위치 선택</div>
+      <input id="ppingMsg" type="text" placeholder="메시지 (선택)" style="font-size:13px;padding:8px;text-align:center;">
+      <input type="hidden" id="ppingLat">
+      <input type="hidden" id="ppingLng">
+      <div style="margin-top:8px;display:flex;gap:4px;">
+        <button class="success small" onclick="sendParentPing()" style="flex:1;">핑 보내기</button>
+        <button class="gray small" onclick="hideParentPing()">취소</button>
+      </div>
+    </div>
+    <div id="parentPingList"></div>
+  </div>
+
   <div class="card" id="pinLegend" style="display:none;">
     <div class="flex-between">
       <h2>📌 거점 목록</h2>
@@ -268,6 +293,7 @@ function autoLogin(id, pw) {
     authenticated = true;
     document.getElementById('logoutBtn').style.display = '';
     document.getElementById('parentShareCard').style.display = '';
+    document.getElementById('parentPingCard').style.display = '';
     document.getElementById('mySettingsCard').style.display = '';
     addParentFilter();
     kakao.maps.load(initMap);
@@ -282,6 +308,7 @@ function autoLogin(id, pw) {
     document.getElementById('logoutBtn').style.display = '';
     document.getElementById('childMgmtCard').style.display = '';
     document.getElementById('parentShareCard').style.display = '';
+    document.getElementById('parentPingCard').style.display = '';
     document.getElementById('mySettingsCard').style.display = '';
     kakao.maps.load(function() { initMap(); renderMyChildList(); checkWeakPw(pw); });
     return;
@@ -314,11 +341,17 @@ function initMap() {
     }
   });
   kakao.maps.event.addListener(map, 'click', function(e) {
+    var lat = e.latLng.getLat();
+    var lng = e.latLng.getLng();
     if (document.getElementById('pinFormCard').style.display !== 'none') {
-      var lat = e.latLng.getLat();
-      var lng = e.latLng.getLng();
       document.getElementById('pfLat').value = lat.toFixed(6);
       document.getElementById('pfLng').value = lng.toFixed(6);
+      showPinTempMarker(lat, lng);
+    }
+    if (document.getElementById('parentPingForm').style.display !== 'none') {
+      document.getElementById('ppingLat').value = lat.toFixed(6);
+      document.getElementById('ppingLng').value = lng.toFixed(6);
+      document.getElementById('ppingLocLabel').textContent = '📍 지도에서 선택한 위치';
       showPinTempMarker(lat, lng);
     }
   });
@@ -338,6 +371,7 @@ function render() {
   renderChildren();
   renderPins();
   renderChildPins();
+  renderParentPins();
   renderParentLocations();
   updateList();
   document.getElementById('lastRefresh').textContent = new Date().toLocaleTimeString('ko-KR');
@@ -867,6 +901,7 @@ function doLogin() {
     authenticated = true;
     document.getElementById('logoutBtn').style.display = '';
     document.getElementById('parentShareCard').style.display = '';
+    document.getElementById('parentPingCard').style.display = '';
     document.getElementById('mySettingsCard').style.display = '';
     addParentFilter();
     kakao.maps.load(initMap);
@@ -884,6 +919,7 @@ function doLogin() {
     document.getElementById('logoutBtn').style.display = '';
     document.getElementById('childMgmtCard').style.display = '';
     document.getElementById('parentShareCard').style.display = '';
+    document.getElementById('parentPingCard').style.display = '';
     document.getElementById('mySettingsCard').style.display = '';
     kakao.maps.load(function() { initMap(); renderMyChildList(); checkWeakPw(pw); });
     return;
@@ -1069,6 +1105,122 @@ function deleteMyChild(childId, childName) {
   }
   setTimeout(function() { render(); renderMyChildList(); }, 500);
 }
+
+// ──── 부모 핑 ────
+var parentPingMarkers = [];
+var parentPingFormOpen = false;
+
+function showParentPing() {
+  document.getElementById('ppingLat').value = '';
+  document.getElementById('ppingLng').value = '';
+  document.getElementById('ppingMsg').value = '';
+  document.getElementById('ppingAddr').value = '';
+  document.getElementById('ppingAddrResults').innerHTML = '';
+  document.getElementById('ppingLocLabel').textContent = '📍 위치를 선택하세요';
+  document.getElementById('parentPingForm').style.display = '';
+  parentPingFormOpen = true;
+}
+function hideParentPing() {
+  document.getElementById('parentPingForm').style.display = 'none';
+  parentPingFormOpen = false;
+  if (pinTempMarker) { pinTempMarker.setMap(null); pinTempMarker = null; }
+}
+function searchParentPingAddr() {
+  var addr = document.getElementById('ppingAddr').value.trim();
+  if (!addr) return;
+  if (!geocoder) geocoder = new kakao.maps.services.Geocoder();
+  geocoder.addressSearch(addr, function(result, status) {
+    if (status === kakao.maps.services.Status.OK && result.length) {
+      var html = '';
+      result.slice(0, 5).forEach(function(r) {
+        html += '<div onclick="selectParentPingAddr(' + r.y + ',' + r.x + ',\'' + r.address_name.replace(/'/g, "\\'") + '\')" '
+          + 'style="padding:6px 8px;cursor:pointer;font-size:12px;border-bottom:1px solid #eee;">'
+          + r.address_name + '</div>';
+      });
+      document.getElementById('ppingAddrResults').innerHTML = html;
+    } else {
+      var ps = new kakao.maps.services.Places();
+      ps.keywordSearch(addr, function(data, s2) {
+        if (s2 === kakao.maps.services.Status.OK && data.length) {
+          var html = '';
+          data.slice(0, 5).forEach(function(d) {
+            html += '<div onclick="selectParentPingAddr(' + d.y + ',' + d.x + ',\'' + d.place_name.replace(/'/g, "\\'") + '\')" '
+              + 'style="padding:6px 8px;cursor:pointer;font-size:12px;border-bottom:1px solid #eee;">'
+              + d.place_name + ' <span style="color:#999;font-size:11px;">' + (d.address_name||'') + '</span></div>';
+          });
+          document.getElementById('ppingAddrResults').innerHTML = html;
+        } else {
+          document.getElementById('ppingAddrResults').innerHTML = '<div style="padding:6px;font-size:12px;color:#999;">결과 없음</div>';
+        }
+      });
+    }
+  });
+}
+function selectParentPingAddr(lat, lng, name) {
+  document.getElementById('ppingAddrResults').innerHTML = '';
+  document.getElementById('ppingLat').value = lat;
+  document.getElementById('ppingLng').value = lng;
+  document.getElementById('ppingLocLabel').textContent = '📍 ' + name;
+  showPinTempMarker(lat, lng);
+  map.setCenter(new kakao.maps.LatLng(lat, lng));
+  map.setLevel(3);
+}
+function sendParentPing() {
+  var lat = parseFloat(document.getElementById('ppingLat').value);
+  var lng = parseFloat(document.getElementById('ppingLng').value);
+  if (isNaN(lat) || isNaN(lng)) { alert('위치를 선택하세요.\n지도를 누르거나 주소를 검색하세요.'); return; }
+  var msg = document.getElementById('ppingMsg').value.trim();
+  var senderId = currentParentId || 'admin';
+  var senderName = '';
+  if (currentParentId) {
+    var p = getParents().find(function(x) { return x.id === currentParentId; });
+    senderName = p ? p.name : '';
+  } else {
+    senderName = '관리자';
+  }
+  fbDb.ref('/parentPins/' + uid()).set({
+    parentId: senderId, parentName: senderName,
+    lat: lat, lng: lng, message: msg || '여기야!', timestamp: Date.now()
+  });
+  hideParentPing();
+}
+function renderParentPins() {
+  parentPingMarkers.forEach(function(m) { m.setMap(null); });
+  parentPingMarkers = [];
+  var pPins = getParentPins();
+  if (!pPins.length) {
+    document.getElementById('parentPingList').innerHTML = '';
+    return;
+  }
+  pPins.forEach(function(pp) {
+    var marker = new kakao.maps.Marker({
+      position: new kakao.maps.LatLng(pp.lat, pp.lng), map: map,
+      image: pinMarkerImage('👤', '#8e44ad')
+    });
+    var iw = new kakao.maps.InfoWindow({
+      content: '<div style="padding:6px 10px;font-size:12px;white-space:nowrap;">'
+        + '<b>' + (pp.parentName||'부모') + '</b>: ' + (pp.message||'')
+        + '<br><span style="color:#999;font-size:11px;">' + timeAgo(pp.timestamp) + '</span></div>'
+    });
+    kakao.maps.event.addListener(marker, 'click', function() { toggleInfoWindow(iw, marker, map); });
+    parentPingMarkers.push(marker);
+  });
+  var listHtml = '';
+  pPins.forEach(function(pp) {
+    var canDelete = (currentParentId && pp.parentId === currentParentId) || loginMode === 'admin';
+    listHtml += '<div style="display:flex;align-items:center;gap:6px;padding:6px;background:#f8f9fa;border-radius:6px;margin-top:4px;font-size:12px;">'
+      + '<span>👤</span>'
+      + '<div style="flex:1;min-width:0;">'
+      + '<span style="font-weight:600;">' + (pp.parentName||'부모') + '</span> '
+      + '<span style="color:#666;">' + (pp.message||'') + '</span>'
+      + '<div style="font-size:11px;color:#aaa;">' + timeAgo(pp.timestamp) + '</div></div>'
+      + '<button onclick="focusPoint(' + pp.lat + ',' + pp.lng + ')" style="background:#3498db;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">보기</button>'
+      + (canDelete ? '<button onclick="deleteParentPing(\'' + pp.id + '\')" style="background:#e74c3c;color:#fff;border:none;padding:4px 6px;border-radius:4px;font-size:11px;cursor:pointer;">✕</button>' : '')
+      + '</div>';
+  });
+  document.getElementById('parentPingList').innerHTML = listHtml;
+}
+function deleteParentPing(pinId) { fbDb.ref('/parentPins/' + pinId).remove(); }
 
 window.addEventListener('beforeunload', function() {
   if (parentShareActive) {

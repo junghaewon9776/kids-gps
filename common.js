@@ -89,6 +89,12 @@ function getChildPins() {
     .sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
 }
 
+function getParentPins() {
+  var p = _cache.parentPins || {};
+  return Object.keys(p).map(function(k) { return Object.assign({ id: k }, p[k]); })
+    .sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+}
+
 function getParentLocations() {
   return _cache.parentLocations || {};
 }
