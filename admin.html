@@ -23,7 +23,10 @@
 <body>
 <header style="padding:8px 16px;">
   <h1 style="font-size:14px;">🔧 관리자</h1>
-  <nav><a href="index.html" style="font-size:12px;">홈</a></nav>
+  <nav>
+    <a href="index.html" style="font-size:12px;">홈</a>
+    <a href="#" onclick="localStorage.removeItem('kids_admin_login');location.reload();return false;" style="font-size:11px;color:#e74c3c;margin-left:8px;">로그아웃</a>
+  </nav>
 </header>
 
 <!-- 로그인 화면 -->
@@ -189,6 +192,18 @@ var pinMap = null, pinMapMarker = null, geocoder = null;
 
 initFirebaseSync();
 onDataReady(function() {
+  var saved = localStorage.getItem('kids_admin_login');
+  if (saved) {
+    try {
+      var cred = JSON.parse(saved);
+      var cfg = getConfig();
+      if (cfg.adminEmail === cred.email && cfg.adminPw === cred.pw) {
+        enterAdmin();
+        return;
+      }
+    } catch(e) {}
+    localStorage.removeItem('kids_admin_login');
+  }
   document.getElementById('adminEmail').focus();
 });
 
@@ -202,11 +217,13 @@ function adminLogin() {
     fbDb.ref('/config/adminEmail').set(email);
     fbDb.ref('/config/adminPw').set(pw);
     fbDb.ref('/config/adminId').set(email);
+    localStorage.setItem('kids_admin_login', JSON.stringify({email:email, pw:pw}));
     enterAdmin();
     return;
   }
 
   if (email === cfg.adminEmail && pw === cfg.adminPw) {
+    localStorage.setItem('kids_admin_login', JSON.stringify({email:email, pw:pw}));
     enterAdmin();
   } else {
     document.getElementById('adminErr').textContent = '이메일 또는 비밀번호가 틀립니다.';

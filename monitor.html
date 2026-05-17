@@ -227,7 +227,50 @@ var geocoder = null;
 var longPressTimer = null;
 
 initFirebaseSync();
-onDataReady(function() { showLoginGate(); });
+onDataReady(function() {
+  var saved = localStorage.getItem('kids_monitor_login');
+  if (saved) {
+    try {
+      var cred = JSON.parse(saved);
+      autoLogin(cred.id, cred.pw);
+    } catch(e) {
+      localStorage.removeItem('kids_monitor_login');
+      showLoginGate();
+    }
+  } else {
+    showLoginGate();
+  }
+});
+
+function autoLogin(id, pw) {
+  var cfg = getConfig();
+  if ((cfg.adminId === id || cfg.adminEmail === id) && cfg.adminPw === pw) {
+    loginMode = 'admin';
+    visibleChildIds = null;
+    authenticated = true;
+    document.getElementById('logoutBtn').style.display = '';
+    document.getElementById('parentShareCard').style.display = '';
+    document.getElementById('mySettingsCard').style.display = '';
+    addParentFilter();
+    kakao.maps.load(initMap);
+    return;
+  }
+  var parent = getParents().find(function(p) { return p.loginId === id; });
+  if (parent && parent.loginPw === pw) {
+    loginMode = 'parent';
+    currentParentId = parent.id;
+    visibleChildIds = parent.childIds || [];
+    authenticated = true;
+    document.getElementById('logoutBtn').style.display = '';
+    document.getElementById('childMgmtCard').style.display = '';
+    document.getElementById('parentShareCard').style.display = '';
+    document.getElementById('mySettingsCard').style.display = '';
+    kakao.maps.load(function() { initMap(); renderMyChildList(); });
+    return;
+  }
+  localStorage.removeItem('kids_monitor_login');
+  showLoginGate();
+}
 
 function initMap() {
   var defLat = 35.3475, defLng = 126.4180, defLevel = 5;
@@ -785,6 +828,7 @@ function doLogin() {
   var cfg = getConfig();
   if ((cfg.adminId === id || cfg.adminEmail === id) && (cfg.adminPw === pw)) {
     document.getElementById('loginGate').remove();
+    localStorage.setItem('kids_monitor_login', JSON.stringify({id:id, pw:pw}));
     loginMode = 'admin';
     visibleChildIds = null;
     authenticated = true;
@@ -799,6 +843,7 @@ function doLogin() {
   var parent = getParents().find(function(p) { return p.loginId === id; });
   if (parent && parent.loginPw === pw) {
     document.getElementById('loginGate').remove();
+    localStorage.setItem('kids_monitor_login', JSON.stringify({id:id, pw:pw}));
     loginMode = 'parent';
     currentParentId = parent.id;
     visibleChildIds = parent.childIds || [];
@@ -817,6 +862,7 @@ function doLogin() {
 
 function doLogout() {
   if (parentShareActive) stopParentShare();
+  localStorage.removeItem('kids_monitor_login');
   location.reload();
 }
 
