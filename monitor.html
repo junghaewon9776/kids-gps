@@ -96,24 +96,26 @@
   <div class="card" id="childMgmtCard" style="display:none;">
     <div class="flex-between">
       <h2>내 자녀 관리</h2>
-      <button class="success small" onclick="showAddMyChild()">+ 자녀 등록</button>
+      <button class="success small" onclick="showLinkChild()">+ 자녀 연결</button>
     </div>
     <div id="myChildList"></div>
     <div id="myChildForm" style="display:none;margin-top:8px;padding:10px;background:#f8f9fa;border-radius:6px;">
-      <label>이름</label>
-      <input id="mcName" type="text" placeholder="이름">
-      <label>연락처</label>
-      <input id="mcPhone" type="tel" inputmode="tel" placeholder="010-0000-0000 (선택)">
-      <label>이모지</label>
-      <div style="display:flex;gap:4px;flex-wrap:wrap;margin:4px 0;" id="mcEmojiPicker"></div>
-      <input id="mcEmoji" type="text" value="🐻" style="width:50px;text-align:center;font-size:18px;">
-      <label>색상</label>
-      <div style="display:flex;gap:4px;flex-wrap:wrap;margin:4px 0;" id="mcColorPicker"></div>
-      <input id="mcColor" type="color" value="#FF6B6B" style="width:50px;height:30px;">
+      <label>자녀 접속 코드 (관리자에게 받은 4자리)</label>
+      <input id="mcCode" type="text" maxlength="4" placeholder="예: A3K7" style="text-align:center;font-size:20px;letter-spacing:4px;text-transform:uppercase;">
       <div style="margin-top:8px;display:flex;gap:4px;">
-        <button class="success small" onclick="saveMyChild()">저장</button>
-        <button class="gray small" onclick="hideMyChildForm()">취소</button>
+        <button class="success small" onclick="linkMyChild()">연결</button>
+        <button class="gray small" onclick="hideLinkChild()">취소</button>
       </div>
+      <div style="font-size:11px;color:#999;margin-top:6px;">관리자가 등록한 자녀의 코드를 입력하면 내 목록에 추가됩니다.</div>
+    </div>
+  </div>
+  <!-- 비밀번호 변경 안내 -->
+  <div class="card" id="pwChangeCard" style="display:none;background:#fff3cd;border-left:4px solid #f39c12;">
+    <div style="font-size:13px;font-weight:600;color:#856404;">⚠️ 초기 비밀번호를 사용 중입니다</div>
+    <div style="font-size:12px;color:#856404;margin-top:4px;">보안을 위해 비밀번호를 변경해주세요.</div>
+    <div style="margin-top:8px;">
+      <input id="newPwInput" type="text" placeholder="새 비밀번호" style="font-size:13px;padding:8px;width:60%;display:inline-block;">
+      <button class="success small" onclick="changeMyPw()" style="margin-left:4px;">변경</button>
     </div>
   </div>
 
@@ -270,7 +272,7 @@ function autoLogin(id, pw) {
     document.getElementById('childMgmtCard').style.display = '';
     document.getElementById('parentShareCard').style.display = '';
     document.getElementById('mySettingsCard').style.display = '';
-    kakao.maps.load(function() { initMap(); renderMyChildList(); });
+    kakao.maps.load(function() { initMap(); renderMyChildList(); checkWeakPw(pw); });
     return;
   }
   localStorage.removeItem('kids_monitor_login');
@@ -863,7 +865,7 @@ function doLogin() {
     document.getElementById('childMgmtCard').style.display = '';
     document.getElementById('parentShareCard').style.display = '';
     document.getElementById('mySettingsCard').style.display = '';
-    kakao.maps.load(function() { initMap(); renderMyChildList(); });
+    kakao.maps.load(function() { initMap(); renderMyChildList(); checkWeakPw(pw); });
     return;
   }
 
@@ -938,54 +940,56 @@ function copyCode(code) {
   }
 }
 
-function showAddMyChild() {
-  var idx = getChildren().length;
-  document.getElementById('mcEmoji').value = CHILD_EMOJIS[idx % CHILD_EMOJIS.length];
-  document.getElementById('mcColor').value = CHILD_COLORS[idx % CHILD_COLORS.length];
-  document.getElementById('mcName').value = '';
-  document.getElementById('mcPhone').value = '';
-  buildMyChildPickers();
+function showLinkChild() {
+  document.getElementById('mcCode').value = '';
   document.getElementById('myChildForm').style.display = '';
+  setTimeout(function() { document.getElementById('mcCode').focus(); }, 100);
 }
-function buildMyChildPickers() {
-  var eh = ''; CHILD_EMOJIS.forEach(function(e) {
-    eh += '<button type="button" onclick="document.getElementById(\'mcEmoji\').value=\'' + e + '\'" style="font-size:18px;background:none;border:1px solid #ddd;border-radius:4px;padding:3px 6px;cursor:pointer;">' + e + '</button>';
-  });
-  document.getElementById('mcEmojiPicker').innerHTML = eh;
-  var ch = ''; CHILD_COLORS.forEach(function(c) {
-    ch += '<button type="button" onclick="document.getElementById(\'mcColor\').value=\'' + c + '\'" style="width:24px;height:24px;border-radius:50%;background:' + c + ';border:2px solid #fff;box-shadow:0 0 0 1px #ccc;cursor:pointer;padding:0;"></button>';
-  });
-  document.getElementById('mcColorPicker').innerHTML = ch;
-}
-function hideMyChildForm() { document.getElementById('myChildForm').style.display = 'none'; }
-function saveMyChild() {
-  var name = document.getElementById('mcName').value.trim();
-  if (!name) { alert('이름을 입력하세요.'); return; }
-  var phone = document.getElementById('mcPhone').value.trim();
-  var childId = uid();
-  var code = generateCode();
-  var childData = {
-    name: name, emoji: document.getElementById('mcEmoji').value || '🐻',
-    color: document.getElementById('mcColor').value || '#FF6B6B',
-    code: code, order: getChildren().length + 1
-  };
-  if (phone) childData.phone = phone;
-  fbDb.ref('/children/' + childId).set(childData);
+function hideLinkChild() { document.getElementById('myChildForm').style.display = 'none'; }
+function linkMyChild() {
+  var code = document.getElementById('mcCode').value.trim().toUpperCase();
+  if (!code || code.length !== 4) { alert('4자리 코드를 입력하세요.'); return; }
+  var child = findChildByCode(code);
+  if (!child) { alert('해당 코드의 자녀를 찾을 수 없습니다.\n관리자에게 문의하세요.'); return; }
   var parent = getParents().find(function(p) { return p.id === currentParentId; });
-  if (parent) {
-    var ids = parent.childIds || [];
-    if (ids.indexOf(childId) === -1) {
-      ids.push(childId);
-      fbDb.ref('/parents/' + currentParentId + '/childIds').set(ids);
-      visibleChildIds = ids;
-    }
-  }
-  hideMyChildForm();
+  if (!parent) return;
+  var ids = parent.childIds || [];
+  if (ids.indexOf(child.id) !== -1) { alert(child.name + '은(는) 이미 연결되어 있습니다.'); return; }
+  ids.push(child.id);
+  fbDb.ref('/parents/' + currentParentId + '/childIds').set(ids);
+  visibleChildIds = ids;
+  hideLinkChild();
   setTimeout(function() {
     render();
     renderMyChildList();
-    alert('자녀 등록 완료!\n접속 코드: ' + code + '\n\n이 코드를 아이에게 알려주세요.');
+    alert(child.name + ' 연결 완료!');
   }, 500);
+}
+
+function checkWeakPw(pw) {
+  if (loginMode !== 'parent') return;
+  var weak = ['1234', '0000', '1111', 'password', 'abcd'];
+  if (weak.indexOf(pw) !== -1) {
+    document.getElementById('pwChangeCard').style.display = '';
+  }
+}
+function changeMyPw() {
+  var newPw = document.getElementById('newPwInput').value.trim();
+  if (!newPw) { alert('새 비밀번호를 입력하세요.'); return; }
+  if (newPw.length < 4) { alert('4자리 이상 입력하세요.'); return; }
+  fbDb.ref('/parents/' + currentParentId + '/loginPw').set(newPw).then(function() {
+    document.getElementById('pwChangeCard').style.display = 'none';
+    var saved = localStorage.getItem('kids_monitor_login');
+    if (saved) {
+      try {
+        var cred = JSON.parse(saved);
+        cred.pw = newPw;
+        cred.ts = Date.now();
+        localStorage.setItem('kids_monitor_login', JSON.stringify(cred));
+      } catch(e) {}
+    }
+    alert('비밀번호가 변경되었습니다!');
+  });
 }
 function removeMyChild(childId, childName) {
   if (!confirm(childName + ' 해제?')) return;
