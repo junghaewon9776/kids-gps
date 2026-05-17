@@ -102,6 +102,8 @@
     <div id="myChildForm" style="display:none;margin-top:8px;padding:10px;background:#f8f9fa;border-radius:6px;">
       <label>이름</label>
       <input id="mcName" type="text" placeholder="이름">
+      <label>연락처</label>
+      <input id="mcPhone" type="tel" inputmode="tel" placeholder="010-0000-0000 (선택)">
       <label>이모지</label>
       <div style="display:flex;gap:4px;flex-wrap:wrap;margin:4px 0;" id="mcEmojiPicker"></div>
       <input id="mcEmoji" type="text" value="🐻" style="width:50px;text-align:center;font-size:18px;">
@@ -595,12 +597,13 @@ function renderParentLocations() {
       image: emojiMarkerImage('👤', '#8e44ad', 32),
       zIndex: 8
     });
-    var iw = new kakao.maps.InfoWindow({
-      content: '<div style="padding:8px;font-size:12px;min-width:100px;">'
-        + '<b>👤 ' + name + '</b>'
-        + '<div class="muted">' + timeAgo(pl.timestamp) + '</div></div>',
-      removable: true
-    });
+    var phone = parent ? (parent.phone || '') : '';
+    var iwHtml = '<div style="padding:8px;font-size:12px;min-width:100px;">'
+      + '<b>👤 ' + name + '</b>'
+      + '<div class="muted">' + timeAgo(pl.timestamp) + '</div>';
+    if (phone) iwHtml += '<div><a href="tel:' + phone + '" style="color:#3498db;">📞 ' + phone + '</a></div>';
+    iwHtml += '</div>';
+    var iw = new kakao.maps.InfoWindow({ content: iwHtml, removable: true });
     kakao.maps.event.addListener(marker, 'click', (function(m, i) {
       return function() { toggleInfoWindow(i, m, map); };
     })(marker, iw));
@@ -841,8 +844,10 @@ function renderMyChildList() {
     html += '<div style="display:flex;align-items:center;gap:8px;padding:8px;background:#f8f9fa;border-radius:6px;margin-top:6px;">'
       + '<span style="font-size:20px;">' + (c.emoji||'📍') + '</span>'
       + '<div style="flex:1;min-width:0;">'
-      + '<div style="font-weight:600;font-size:13px;">' + c.name + '</div>'
-      + '<div style="font-size:12px;color:#888;">코드: <b style="color:#2c3e50;font-size:14px;letter-spacing:2px;">' + (c.code||'없음') + '</b></div>'
+      + '<div style="font-weight:600;font-size:13px;">' + c.name
+      + (c.phone ? ' <a href="tel:' + c.phone + '" style="font-size:11px;color:#3498db;text-decoration:none;">📞</a>' : '') + '</div>'
+      + '<div style="font-size:12px;color:#888;">코드: <b style="color:#2c3e50;font-size:14px;letter-spacing:2px;">' + (c.code||'없음') + '</b>'
+      + (c.phone ? ' · ' + c.phone : '') + '</div>'
       + '</div>'
       + '<button onclick="copyCode(\'' + (c.code||'') + '\')" style="background:#3498db;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">복사</button>'
       + '</div>';
@@ -864,6 +869,7 @@ function showAddMyChild() {
   document.getElementById('mcEmoji').value = CHILD_EMOJIS[idx % CHILD_EMOJIS.length];
   document.getElementById('mcColor').value = CHILD_COLORS[idx % CHILD_COLORS.length];
   document.getElementById('mcName').value = '';
+  document.getElementById('mcPhone').value = '';
   buildMyChildPickers();
   document.getElementById('myChildForm').style.display = '';
 }
@@ -881,13 +887,16 @@ function hideMyChildForm() { document.getElementById('myChildForm').style.displa
 function saveMyChild() {
   var name = document.getElementById('mcName').value.trim();
   if (!name) { alert('이름을 입력하세요.'); return; }
+  var phone = document.getElementById('mcPhone').value.trim();
   var childId = uid();
   var code = generateCode();
-  fbDb.ref('/children/' + childId).set({
+  var childData = {
     name: name, emoji: document.getElementById('mcEmoji').value || '🐻',
     color: document.getElementById('mcColor').value || '#FF6B6B',
     code: code, order: getChildren().length + 1
-  });
+  };
+  if (phone) childData.phone = phone;
+  fbDb.ref('/children/' + childId).set(childData);
   var parent = getParents().find(function(p) { return p.id === currentParentId; });
   if (parent) {
     var ids = parent.childIds || [];

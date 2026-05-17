@@ -67,6 +67,8 @@
       <input id="ppLoginId" type="text" placeholder="mom" style="font-size:12px;">
       <label>비밀번호</label>
       <input id="ppLoginPw" type="text" placeholder="비밀번호" style="font-size:12px;">
+      <label>연락처</label>
+      <input id="ppPhone" type="tel" inputmode="tel" placeholder="010-0000-0000" style="font-size:12px;">
       <div style="margin-top:8px;display:flex;gap:4px;">
         <button class="success small" onclick="saveParent()">저장</button>
         <button class="gray small" onclick="hideParentForm()">취소</button>
@@ -93,6 +95,8 @@
       <input type="hidden" id="editChildId">
       <label>이름</label>
       <input id="cfName" type="text" placeholder="이름" style="font-size:12px;">
+      <label>연락처</label>
+      <input id="cfPhone" type="tel" inputmode="tel" placeholder="010-0000-0000 (선택)" style="font-size:12px;">
       <label>이모지</label>
       <div style="display:flex;gap:4px;flex-wrap:wrap;margin:4px 0;" id="cfEmojiPicker"></div>
       <input id="cfEmoji" type="text" value="🐻" style="width:50px;text-align:center;font-size:18px;">
@@ -255,6 +259,7 @@ function renderParentsList() {
       + '<span>👤</span>'
       + '<div style="flex:1;min-width:0;">'
       + '<div class="name">' + p.name + ' <span class="sub">(' + (p.loginId||'') + ')</span></div>'
+      + (p.phone ? '<div class="sub"><a href="tel:' + p.phone + '" style="color:#3498db;">📞 ' + p.phone + '</a></div>' : '')
       + '<div class="sub">' + cn + '</div></div>'
       + '<button class="small" onclick="editParent(\'' + p.id + '\')">수정</button>'
       + '<button class="small danger" onclick="deleteParent(\'' + p.id + '\',\'' + p.name + '\')">삭제</button>'
@@ -331,7 +336,8 @@ function renderChildrenList() {
       + '<span style="font-size:18px;">' + (c.emoji||'📍') + '</span>'
       + '<div style="flex:1;min-width:0;">'
       + '<div class="name">' + c.name + '</div>'
-      + '<div class="sub">코드: <b style="color:#2c3e50;font-size:13px;letter-spacing:2px;">' + (c.code||'없음') + '</b></div></div>'
+      + '<div class="sub">코드: <b style="color:#2c3e50;font-size:13px;letter-spacing:2px;">' + (c.code||'없음') + '</b>'
+      + (c.phone ? ' · <a href="tel:' + c.phone + '" style="color:#3498db;">📞' + c.phone + '</a>' : '') + '</div></div>'
       + '<button class="small" onclick="editChild(\'' + c.id + '\')">수정</button>'
       + '<button class="small" onclick="regenCode(\'' + c.id + '\')">코드갱신</button>'
       + '<button class="small danger" onclick="deleteChild(\'' + c.id + '\',\'' + c.name + '\')">삭제</button>'
@@ -345,6 +351,7 @@ function showAddChild() {
   document.getElementById('childFormTitle').textContent = '자녀 추가';
   document.getElementById('editChildId').value = '';
   document.getElementById('cfName').value = '';
+  document.getElementById('cfPhone').value = '';
   document.getElementById('cfEmoji').value = CHILD_EMOJIS[idx % CHILD_EMOJIS.length];
   document.getElementById('cfColor').value = CHILD_COLORS[idx % CHILD_COLORS.length];
   buildChildPickers();
@@ -356,6 +363,7 @@ function editChild(id) {
   document.getElementById('childFormTitle').textContent = '자녀 수정';
   document.getElementById('editChildId').value = id;
   document.getElementById('cfName').value = c.name;
+  document.getElementById('cfPhone').value = c.phone||'';
   document.getElementById('cfEmoji').value = c.emoji||'🐻';
   document.getElementById('cfColor').value = c.color||'#FF6B6B';
   buildChildPickers();
@@ -379,11 +387,14 @@ function saveChild() {
   var id = editId || uid();
   var old = editId ? getChildren().find(function(c){return c.id===editId;}) : null;
   var code = old ? (old.code || generateCode()) : generateCode();
-  fbDb.ref('/children/' + id).set({
+  var phone = document.getElementById('cfPhone').value.trim();
+  var childData = {
     name: name, emoji: document.getElementById('cfEmoji').value||'🐻',
     color: document.getElementById('cfColor').value||'#FF6B6B',
     code: code, order: old ? (old.order||0) : getChildren().length+1
-  }).then(function() {
+  };
+  if (phone) childData.phone = phone;
+  fbDb.ref('/children/' + id).set(childData).then(function() {
     hideChildForm();
     if (!editId) alert('접속 코드: ' + code + '\n\n이 코드를 아이에게 알려주세요.');
   }).catch(function(e){alert('실패: '+e.message);});
@@ -422,6 +433,7 @@ function showAddParent() {
   document.getElementById('ppName').value = '';
   document.getElementById('ppLoginId').value = '';
   document.getElementById('ppLoginPw').value = '';
+  document.getElementById('ppPhone').value = '';
   document.getElementById('parentForm').style.display = '';
 }
 function editParent(id) {
@@ -432,6 +444,7 @@ function editParent(id) {
   document.getElementById('ppName').value = p.name;
   document.getElementById('ppLoginId').value = p.loginId || '';
   document.getElementById('ppLoginPw').value = p.loginPw || '';
+  document.getElementById('ppPhone').value = p.phone || '';
   document.getElementById('parentForm').style.display = '';
 }
 function hideParentForm() { document.getElementById('parentForm').style.display = 'none'; }
@@ -445,10 +458,11 @@ function saveParent() {
   var dup = getParents().find(function(p){return p.loginId===loginId && p.id!==id;});
   if(dup) { alert('이미 사용 중인 아이디입니다.'); return; }
   var old = editId ? getParents().find(function(p){return p.id===editId;}) : null;
-  fbDb.ref('/parents/' + id).set({
-    name: name, loginId: loginId, loginPw: loginPw,
-    childIds: old ? (old.childIds||[]) : []
-  }).then(hideParentForm).catch(function(e){alert('실패: '+e.message);});
+  var phone = document.getElementById('ppPhone').value.trim();
+  var data = { name: name, loginId: loginId, loginPw: loginPw, childIds: old ? (old.childIds||[]) : [] };
+  if (phone) data.phone = phone;
+  if (old && old.settings) data.settings = old.settings;
+  fbDb.ref('/parents/' + id).set(data).then(hideParentForm).catch(function(e){alert('실패: '+e.message);});
 }
 function deleteParent(id, name) {
   if(!confirm(name + ' 삭제?')) return;
