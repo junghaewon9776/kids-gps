@@ -23,11 +23,12 @@
       border:none;padding:6px 8px;border-radius:6px;font-size:13px;cursor:pointer;
     }
     .pin-modal {
-      position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;
+      position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:999;
       display:flex;align-items:center;justify-content:center;padding:20px;
     }
     .pin-modal-box {
-      background:#fff;border-radius:12px;padding:20px;max-width:320px;width:100%;text-align:center;
+      background:#fff;border-radius:10px;padding:14px 16px;max-width:240px;width:100%;text-align:center;
+      box-shadow:0 4px 20px rgba(0,0,0,0.15);
     }
     .share-loc-btn {
       display:block;width:100%;padding:12px;margin-top:0;
@@ -216,6 +217,41 @@
     </div>
   </div>
 
+  <!-- 연락처 -->
+  <div class="card" id="contactsCard" style="display:none;">
+    <div class="flex-between">
+      <h2>📞 연락처</h2>
+      <button class="success small" onclick="showAddContact()">+ 추가</button>
+    </div>
+    <div id="contactsList"></div>
+    <div id="contactForm" style="display:none;margin-top:8px;padding:10px;background:#f8f9fa;border-radius:6px;">
+      <input type="hidden" id="ctIdx" value="-1">
+      <div style="display:flex;gap:4px;">
+        <input id="ctName" type="text" placeholder="이름 (예: 할머니)" style="flex:1;font-size:13px;">
+        <input id="ctPhone" type="tel" inputmode="tel" placeholder="010-0000-0000" style="flex:1;font-size:13px;">
+      </div>
+      <div style="margin-top:6px;display:flex;gap:4px;">
+        <button class="success small" onclick="saveContact()">저장</button>
+        <button class="gray small" onclick="hideContactForm()">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 채팅 -->
+  <div class="card" id="chatCard" style="display:none;">
+    <div class="flex-between">
+      <h2>💬 채팅</h2>
+      <select id="chatTarget" onchange="loadChat()" style="font-size:12px;padding:4px;border-radius:4px;border:1px solid #ddd;">
+        <option value="group">단체 채팅</option>
+      </select>
+    </div>
+    <div id="chatMessages" style="height:200px;overflow-y:auto;background:#f8f9fa;border-radius:6px;padding:8px;margin-top:6px;"></div>
+    <div style="display:flex;gap:4px;margin-top:6px;">
+      <input id="chatInput" type="text" placeholder="메시지 입력" style="flex:1;font-size:13px;padding:8px;" onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="success small" onclick="sendChat()">전송</button>
+    </div>
+  </div>
+
   <!-- 내 설정 -->
   <div class="card" id="mySettingsCard" style="display:none;">
     <h2>⚙️ 내 설정</h2>
@@ -230,14 +266,15 @@
 <!-- 거점 상세 모달 -->
 <div class="pin-modal" id="pinModal" style="display:none;" onclick="if(event.target===this)closePinModal()">
   <div class="pin-modal-box">
-    <div style="font-size:36px;" id="pmEmoji"></div>
-    <h3 id="pmName" style="margin:8px 0 4px;"></h3>
-    <div id="pmCategory" class="muted" style="margin-bottom:12px;"></div>
-    <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
-      <button onclick="naviToPinWalk()" style="background:#27ae60;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:14px;cursor:pointer;">🚶 도보 네비</button>
-      <button onclick="naviToPinCar()" style="background:#3498db;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:14px;cursor:pointer;">🚗 차량 네비</button>
+    <div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:8px;">
+      <span style="font-size:24px;" id="pmEmoji"></span>
+      <span style="font-size:15px;font-weight:700;" id="pmName"></span>
+      <span class="muted" style="font-size:11px;" id="pmCategory"></span>
     </div>
-    <button onclick="closePinModal()" style="margin-top:12px;background:#95a5a6;color:#fff;border:none;padding:8px 20px;border-radius:6px;font-size:13px;cursor:pointer;">닫기</button>
+    <div style="display:flex;gap:6px;justify-content:center;">
+      <button onclick="naviToPinWalk()" style="background:#27ae60;color:#fff;border:none;padding:8px 14px;border-radius:6px;font-size:13px;cursor:pointer;">🚶 도보</button>
+      <button onclick="naviToPinCar()" style="background:#3498db;color:#fff;border:none;padding:8px 14px;border-radius:6px;font-size:13px;cursor:pointer;">🚗 차량</button>
+    </div>
   </div>
 </div>
 
@@ -296,9 +333,11 @@ function autoLogin(id, pw) {
     document.getElementById('logoutBtn').style.display = '';
     document.getElementById('parentShareCard').style.display = '';
     document.getElementById('parentPingCard').style.display = '';
+    document.getElementById('contactsCard').style.display = '';
+    document.getElementById('chatCard').style.display = '';
     document.getElementById('mySettingsCard').style.display = '';
     addParentFilter();
-    kakao.maps.load(initMap);
+    kakao.maps.load(function() { initMap(); initChat(); });
     return;
   }
   var parent = getParents().find(function(p) { return p.loginId === id; });
@@ -311,8 +350,10 @@ function autoLogin(id, pw) {
     document.getElementById('childMgmtCard').style.display = '';
     document.getElementById('parentShareCard').style.display = '';
     document.getElementById('parentPingCard').style.display = '';
+    document.getElementById('contactsCard').style.display = '';
+    document.getElementById('chatCard').style.display = '';
     document.getElementById('mySettingsCard').style.display = '';
-    kakao.maps.load(function() { initMap(); renderMyChildList(); checkWeakPw(pw); });
+    kakao.maps.load(function() { initMap(); renderMyChildList(); initChat(); checkWeakPw(pw); });
     return;
   }
   localStorage.removeItem('kids_monitor_login');
@@ -542,6 +583,10 @@ function renderPins() {
 }
 
 function showPinModal(pin, cat) {
+  if (selectedPinData && selectedPinData.id === pin.id && document.getElementById('pinModal').style.display !== 'none') {
+    closePinModal();
+    return;
+  }
   selectedPinData = pin;
   document.getElementById('pmEmoji').textContent = pin.emoji || cat.emoji;
   document.getElementById('pmName').textContent = pin.name;
@@ -906,9 +951,11 @@ function doLogin() {
     document.getElementById('logoutBtn').style.display = '';
     document.getElementById('parentShareCard').style.display = '';
     document.getElementById('parentPingCard').style.display = '';
+    document.getElementById('contactsCard').style.display = '';
+    document.getElementById('chatCard').style.display = '';
     document.getElementById('mySettingsCard').style.display = '';
     addParentFilter();
-    kakao.maps.load(initMap);
+    kakao.maps.load(function() { initMap(); initChat(); });
     return;
   }
 
@@ -924,8 +971,10 @@ function doLogin() {
     document.getElementById('childMgmtCard').style.display = '';
     document.getElementById('parentShareCard').style.display = '';
     document.getElementById('parentPingCard').style.display = '';
+    document.getElementById('contactsCard').style.display = '';
+    document.getElementById('chatCard').style.display = '';
     document.getElementById('mySettingsCard').style.display = '';
-    kakao.maps.load(function() { initMap(); renderMyChildList(); checkWeakPw(pw); });
+    kakao.maps.load(function() { initMap(); renderMyChildList(); initChat(); checkWeakPw(pw); });
     return;
   }
 
@@ -1278,6 +1327,150 @@ function renderParentPins() {
   document.getElementById('parentPingList').innerHTML = listHtml;
 }
 function deleteParentPing(pinId) { fbDb.ref('/parentPins/' + pinId).remove(); }
+
+// ──── 연락처 관리 ────
+function renderContacts() {
+  var shareId = currentParentId || 'admin';
+  var path = loginMode === 'admin' ? '/config/contacts' : '/parents/' + shareId + '/contacts';
+  fbDb.ref(path).once('value', function(snap) {
+    var contacts = snap.val() || [];
+    var el = document.getElementById('contactsList');
+    if (!contacts.length) { el.innerHTML = '<div class="muted" style="padding:6px;text-align:center;font-size:12px;">등록된 연락처가 없습니다.</div>'; return; }
+    var html = '';
+    contacts.forEach(function(c, i) {
+      html += '<div style="display:flex;align-items:center;gap:8px;padding:6px;background:#f8f9fa;border-radius:6px;margin-top:4px;font-size:13px;">'
+        + '<span style="flex:1;"><b>' + c.name + '</b> <a href="tel:' + c.phone + '" style="color:#3498db;text-decoration:none;">📞 ' + c.phone + '</a></span>'
+        + '<button onclick="editContact(' + i + ')" style="background:#f39c12;color:#fff;border:none;padding:3px 6px;border-radius:4px;font-size:10px;cursor:pointer;">수정</button>'
+        + '<button onclick="deleteContact(' + i + ')" style="background:#e74c3c;color:#fff;border:none;padding:3px 6px;border-radius:4px;font-size:10px;cursor:pointer;">삭제</button>'
+        + '</div>';
+    });
+    el.innerHTML = html;
+  });
+}
+function showAddContact() {
+  document.getElementById('ctIdx').value = '-1';
+  document.getElementById('ctName').value = '';
+  document.getElementById('ctPhone').value = '';
+  document.getElementById('contactForm').style.display = '';
+}
+function editContact(idx) {
+  var shareId = currentParentId || 'admin';
+  var path = loginMode === 'admin' ? '/config/contacts' : '/parents/' + shareId + '/contacts';
+  fbDb.ref(path).once('value', function(snap) {
+    var contacts = snap.val() || [];
+    if (!contacts[idx]) return;
+    document.getElementById('ctIdx').value = idx;
+    document.getElementById('ctName').value = contacts[idx].name;
+    document.getElementById('ctPhone').value = contacts[idx].phone;
+    document.getElementById('contactForm').style.display = '';
+  });
+}
+function hideContactForm() { document.getElementById('contactForm').style.display = 'none'; }
+function saveContact() {
+  var name = document.getElementById('ctName').value.trim();
+  var phone = document.getElementById('ctPhone').value.trim();
+  if (!name || !phone) { alert('이름과 번호를 입력하세요.'); return; }
+  var idx = parseInt(document.getElementById('ctIdx').value);
+  var shareId = currentParentId || 'admin';
+  var path = loginMode === 'admin' ? '/config/contacts' : '/parents/' + shareId + '/contacts';
+  fbDb.ref(path).once('value', function(snap) {
+    var contacts = snap.val() || [];
+    if (idx >= 0 && idx < contacts.length) {
+      contacts[idx] = { name: name, phone: phone };
+    } else {
+      contacts.push({ name: name, phone: phone });
+    }
+    fbDb.ref(path).set(contacts).then(function() {
+      hideContactForm();
+      renderContacts();
+    });
+  });
+}
+function deleteContact(idx) {
+  var shareId = currentParentId || 'admin';
+  var path = loginMode === 'admin' ? '/config/contacts' : '/parents/' + shareId + '/contacts';
+  fbDb.ref(path).once('value', function(snap) {
+    var contacts = snap.val() || [];
+    contacts.splice(idx, 1);
+    fbDb.ref(path).set(contacts).then(renderContacts);
+  });
+}
+
+// ──── 채팅 ────
+var chatRef = null;
+var chatListener = null;
+
+function initChat() {
+  var sel = document.getElementById('chatTarget');
+  sel.innerHTML = '<option value="group">단체 채팅</option>';
+  var parents = getParents();
+  var myId = currentParentId || 'admin';
+  parents.forEach(function(p) {
+    if (p.id !== myId) {
+      sel.innerHTML += '<option value="' + p.id + '">💬 ' + p.name + '</option>';
+    }
+  });
+  if (loginMode !== 'admin') {
+    sel.innerHTML += '<option value="admin">💬 관리자</option>';
+  }
+  loadChat();
+  renderContacts();
+}
+function getChatPath() {
+  var target = document.getElementById('chatTarget').value;
+  if (target === 'group') return '/chat/group';
+  var myId = currentParentId || 'admin';
+  var ids = [myId, target].sort();
+  return '/chat/dm_' + ids[0] + '_' + ids[1];
+}
+function loadChat() {
+  if (chatListener && chatRef) {
+    chatRef.off('value', chatListener);
+  }
+  var path = getChatPath();
+  chatRef = fbDb.ref(path).orderByChild('timestamp').limitToLast(50);
+  chatListener = chatRef.on('value', function(snap) {
+    var msgs = snap.val() || {};
+    var arr = Object.keys(msgs).map(function(k) { return msgs[k]; })
+      .sort(function(a, b) { return (a.timestamp || 0) - (b.timestamp || 0); });
+    var el = document.getElementById('chatMessages');
+    if (!arr.length) { el.innerHTML = '<div class="muted" style="text-align:center;padding:20px;font-size:12px;">메시지가 없습니다.</div>'; return; }
+    var myId = currentParentId || 'admin';
+    var html = '';
+    arr.forEach(function(m) {
+      var isMine = m.senderId === myId;
+      html += '<div style="margin-bottom:6px;text-align:' + (isMine ? 'right' : 'left') + ';">'
+        + '<div style="display:inline-block;max-width:80%;padding:6px 10px;border-radius:' + (isMine ? '10px 10px 2px 10px' : '10px 10px 10px 2px') + ';'
+        + 'background:' + (isMine ? '#3498db' : '#fff') + ';color:' + (isMine ? '#fff' : '#2c3e50') + ';font-size:13px;text-align:left;'
+        + (isMine ? '' : 'border:1px solid #e0e0e0;') + '">'
+        + (isMine ? '' : '<div style="font-size:10px;font-weight:600;color:#888;margin-bottom:2px;">' + (m.senderName || '') + '</div>')
+        + m.text
+        + '<div style="font-size:9px;opacity:0.6;margin-top:2px;">' + timeAgo(m.timestamp) + '</div>'
+        + '</div></div>';
+    });
+    el.innerHTML = html;
+    el.scrollTop = el.scrollHeight;
+  });
+}
+function sendChat() {
+  var input = document.getElementById('chatInput');
+  var text = input.value.trim();
+  if (!text) return;
+  var myId = currentParentId || 'admin';
+  var myName = '';
+  if (currentParentId) {
+    var p = getParents().find(function(x) { return x.id === currentParentId; });
+    myName = p ? p.name : '';
+  } else {
+    myName = '관리자';
+  }
+  var path = getChatPath();
+  fbDb.ref(path).push({
+    senderId: myId, senderName: myName,
+    text: text, timestamp: Date.now()
+  });
+  input.value = '';
+}
 
 window.addEventListener('beforeunload', function() {
   if (parentShareActive) {

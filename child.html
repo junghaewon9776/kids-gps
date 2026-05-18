@@ -12,11 +12,12 @@
       font-weight:800;text-transform:uppercase;max-width:200px;margin:0 auto;
     }
     .pin-modal {
-      position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;
+      position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:999;
       display:flex;align-items:center;justify-content:center;padding:20px;
     }
     .pin-modal-box {
-      background:#fff;border-radius:12px;padding:20px;max-width:320px;width:100%;text-align:center;
+      background:#fff;border-radius:10px;padding:14px 16px;max-width:240px;width:100%;text-align:center;
+      box-shadow:0 4px 20px rgba(0,0,0,0.15);
     }
     .child-pin-btn {
       display:block;width:100%;padding:14px;margin-top:8px;
@@ -140,14 +141,15 @@
 <!-- 거점 모달 -->
 <div class="pin-modal" id="pinModal" style="display:none;" onclick="if(event.target===this)closePinModal()">
   <div class="pin-modal-box">
-    <div style="font-size:36px;" id="pmEmoji"></div>
-    <h3 id="pmName" style="margin:8px 0 4px;"></h3>
-    <div id="pmCategory" class="muted" style="margin-bottom:12px;"></div>
-    <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
-      <button onclick="naviToPinWalk()" style="background:#27ae60;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:14px;cursor:pointer;">🚶 걸어가기</button>
-      <button onclick="naviToPinCar()" style="background:#3498db;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:14px;cursor:pointer;">🚗 차로 가기</button>
+    <div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:8px;">
+      <span style="font-size:24px;" id="pmEmoji"></span>
+      <span style="font-size:15px;font-weight:700;" id="pmName"></span>
+      <span class="muted" style="font-size:11px;" id="pmCategory"></span>
     </div>
-    <button onclick="closePinModal()" style="margin-top:12px;background:#95a5a6;color:#fff;border:none;padding:8px 20px;border-radius:6px;font-size:13px;cursor:pointer;">닫기</button>
+    <div style="display:flex;gap:6px;justify-content:center;">
+      <button onclick="naviToPinWalk()" style="background:#27ae60;color:#fff;border:none;padding:8px 14px;border-radius:6px;font-size:13px;cursor:pointer;">🚶 걸어가기</button>
+      <button onclick="naviToPinCar()" style="background:#3498db;color:#fff;border:none;padding:8px 14px;border-radius:6px;font-size:13px;cursor:pointer;">🚗 차로 가기</button>
+    </div>
   </div>
 </div>
 
@@ -421,6 +423,10 @@ function renderPinLegend() {
 
 // ──── 거점 모달+네비 ────
 function showPinModal(pin, cat) {
+  if (selectedPinData && selectedPinData.id === pin.id && document.getElementById('pinModal').style.display !== 'none') {
+    closePinModal();
+    return;
+  }
   selectedPinData = pin;
   document.getElementById('pmEmoji').textContent = pin.emoji || cat.emoji;
   document.getElementById('pmName').textContent = pin.name;
