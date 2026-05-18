@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>GPS 앱 연동 설정</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .setup-card {
+      background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;
+      box-shadow:0 2px 8px rgba(0,0,0,0.08);
+    }
+    .copy-box {
+      background:#1e1e1e;color:#e0e0e0;padding:12px;border-radius:8px;
+      font-family:monospace;font-size:12px;word-break:break-all;
+      line-height:1.6;margin:8px 0;position:relative;
+    }
+    .copy-btn {
+      position:absolute;top:6px;right:6px;
+      background:#3498db;color:#fff;border:none;padding:4px 10px;
+      border-radius:4px;font-size:11px;cursor:pointer;
+    }
+    .copy-btn.copied { background:#27ae60; }
+    .step { display:flex;gap:10px;margin-bottom:16px; }
+    .step-num {
+      width:28px;height:28px;border-radius:50%;background:#3498db;color:#fff;
+      display:flex;align-items:center;justify-content:center;font-weight:700;
+      font-size:14px;flex-shrink:0;
+    }
+    .step-content { flex:1;font-size:13px;line-height:1.6; }
+    .child-select-card {
+      background:linear-gradient(135deg,#3498db,#2980b9);color:#fff;
+      border-radius:12px;padding:16px;text-align:center;margin-bottom:16px;
+    }
+    .child-chip {
+      display:inline-block;background:rgba(255,255,255,0.2);color:#fff;
+      padding:8px 16px;border-radius:20px;margin:4px;cursor:pointer;
+      font-size:14px;font-weight:600;transition:background 0.15s;
+    }
+    .child-chip.active { background:rgba(255,255,255,0.95);color:#2c3e50; }
+    .test-result {
+      padding:10px;border-radius:6px;margin-top:8px;font-size:13px;display:none;
+    }
+    .test-result.success { display:block;background:#d4edda;color:#155724; }
+    .test-result.fail { display:block;background:#f8d7da;color:#721c24; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>📱 GPS 앱 연동</h1>
+  <nav><a href="admin.html">관리</a> <a href="index.html">홈</a></nav>
+</header>
+
+<div class="container">
+  <div class="child-select-card">
+    <div style="font-size:14px;opacity:0.9;margin-bottom:8px;">설정할 자녀 선택</div>
+    <div id="childChips"></div>
+  </div>
+
+  <div id="setupContent" style="display:none;">
+    <div class="setup-card">
+      <h2 style="margin-bottom:12px;">📋 GPS Logger 설정값</h2>
+      <p style="font-size:12px;color:#888;margin-bottom:12px;">아래 값을 GPS Logger 앱에 입력하세요</p>
+
+      <label style="font-size:12px;font-weight:600;color:#555;">URL</label>
+      <div class="copy-box" id="urlBox">
+        <button class="copy-btn" onclick="copyText('urlBox')">복사</button>
+        <span id="urlValue"></span>
+      </div>
+
+      <label style="font-size:12px;font-weight:600;color:#555;">HTTP Method</label>
+      <div class="copy-box" id="methodBox">
+        <button class="copy-btn" onclick="copyText('methodBox')">복사</button>
+        <span>PUT</span>
+      </div>
+
+      <label style="font-size:12px;font-weight:600;color:#555;">HTTP Body</label>
+      <div class="copy-box" id="bodyBox">
+        <button class="copy-btn" onclick="copyText('bodyBox')">복사</button>
+        <span id="bodyValue"></span>
+      </div>
+
+      <label style="font-size:12px;font-weight:600;color:#555;">HTTP Headers</label>
+      <div class="copy-box" id="headerBox">
+        <button class="copy-btn" onclick="copyText('headerBox')">복사</button>
+        <span>Content-Type: application/json</span>
+      </div>
+    </div>
+
+    <div class="setup-card">
+      <h2 style="margin-bottom:12px;">🔧 테스트</h2>
+      <p style="font-size:12px;color:#888;margin-bottom:8px;">설정 전에 연결이 되는지 테스트해보세요</p>
+      <button onclick="testSend()" style="width:100%;padding:12px;background:#27ae60;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">📡 테스트 전송</button>
+      <div id="testResult" class="test-result"></div>
+    </div>
+
+    <div class="setup-card">
+      <h2 style="margin-bottom:12px;">📖 설정 방법</h2>
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <b>GPS Logger 설치</b><br>
+          Play 스토어에서 <b>"GPS Logger for Android"</b> 검색 후 설치
+          <div style="margin-top:6px;">
+            <a href="https://play.google.com/store/apps/details?id=com.mendhak.gpslogger" target="_blank"
+              style="background:#27ae60;color:#fff;padding:6px 12px;border-radius:6px;font-size:12px;text-decoration:none;display:inline-block;">
+              Play 스토어 열기
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <b>Custom URL 설정</b><br>
+          앱 실행 → ☰ 메뉴 → <b>Logging details</b> → <b>Log to custom URL</b> 켜기
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <b>URL 입력</b><br>
+          위의 URL을 복사해서 붙여넣기
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <b>HTTP Method</b><br>
+          <code>PUT</code> 으로 변경 (기본 POST → PUT)
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <b>HTTP Body</b><br>
+          위의 Body를 복사해서 붙여넣기
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">6</div>
+        <div class="step-content">
+          <b>HTTP Headers</b><br>
+          <code>Content-Type: application/json</code> 추가
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">7</div>
+        <div class="step-content">
+          <b>자동 시작 설정</b><br>
+          ☰ → <b>General options</b> → <b>"Start on bootup"</b> 켜기<br>
+          → <b>"Start logging on app launch"</b> 켜기
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">8</div>
+        <div class="step-content">
+          <b>전송 간격 설정</b><br>
+          ☰ → <b>Logging details</b> → <b>Time interval</b><br>
+          권장: <b>15초~30초</b> (배터리와 정확도 균형)
+        </div>
+      </div>
+    </div>
+
+    <div class="setup-card" style="background:#fff3cd;border-left:4px solid #f39c12;">
+      <h2 style="margin-bottom:8px;font-size:14px;color:#856404;">💡 참고</h2>
+      <ul style="font-size:12px;color:#856404;line-height:1.8;padding-left:16px;margin:0;">
+        <li>GPS Logger는 화면 꺼져도 백그라운드에서 계속 작동합니다</li>
+        <li>배터리 최적화에서 GPS Logger를 <b>제외</b>해주세요</li>
+        <li>child.html 페이지는 핑/SOS/가족위치 확인용으로 따로 사용 가능</li>
+        <li>두 가지(웹+앱)를 동시에 쓰면 더 정확합니다</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="common.js"></script>
+<script>
+var selectedChild = null;
+var DB_URL = 'https://kids-gps-6d1a6-default-rtdb.asia-southeast1.firebasedatabase.app';
+
+initFirebaseSync();
+onDataReady(function() {
+  renderChildChips();
+});
+
+function renderChildChips() {
+  var children = getChildren();
+  var el = document.getElementById('childChips');
+  if (!children.length) {
+    el.innerHTML = '<div style="opacity:0.8;font-size:13px;">등록된 자녀가 없습니다.<br>관리자 페이지에서 먼저 등록하세요.</div>';
+    return;
+  }
+  var html = '';
+  children.forEach(function(c) {
+    html += '<span class="child-chip" onclick="selectChild(\'' + c.id + '\')">'
+      + (c.emoji || '📍') + ' ' + c.name + '</span>';
+  });
+  el.innerHTML = html;
+}
+
+function selectChild(id) {
+  selectedChild = getChildren().find(function(c) { return c.id === id; });
+  if (!selectedChild) return;
+
+  document.querySelectorAll('.child-chip').forEach(function(el) {
+    el.classList.toggle('active', el.textContent.indexOf(selectedChild.name) !== -1);
+  });
+
+  var url = DB_URL + '/locations/' + id + '.json';
+  var body = '{"lat":%LAT,"lng":%LON,"accuracy":%ACC,"timestamp":{".sv":"timestamp"},"lastUpdate":{".sv":"timestamp"},"isActive":true,"batteryLevel":%BATT}';
+
+  document.getElementById('urlValue').textContent = url;
+  document.getElementById('bodyValue').textContent = body;
+  document.getElementById('setupContent').style.display = '';
+  document.getElementById('testResult').className = 'test-result';
+  document.getElementById('testResult').style.display = 'none';
+}
+
+function copyText(boxId) {
+  var box = document.getElementById(boxId);
+  var text = box.querySelector('span').textContent;
+  var btn = box.querySelector('.copy-btn');
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(function() {
+      btn.textContent = '복사됨!';
+      btn.classList.add('copied');
+      setTimeout(function() { btn.textContent = '복사'; btn.classList.remove('copied'); }, 2000);
+    });
+  } else {
+    prompt('복사하세요:', text);
+  }
+}
+
+function testSend() {
+  if (!selectedChild) return;
+  var url = DB_URL + '/locations/' + selectedChild.id + '.json';
+  var body = {
+    lat: 35.3475,
+    lng: 126.4180,
+    accuracy: 10,
+    timestamp: {'.sv': 'timestamp'},
+    lastUpdate: {'.sv': 'timestamp'},
+    isActive: true,
+    batteryLevel: 100,
+    source: 'test'
+  };
+
+  var el = document.getElementById('testResult');
+  el.className = 'test-result';
+  el.style.display = 'block';
+  el.textContent = '전송 중...';
+  el.style.background = '#e2e3e5';
+  el.style.color = '#383d41';
+
+  fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }).then(function(res) {
+    if (res.ok) {
+      el.className = 'test-result success';
+      el.innerHTML = '✅ 전송 성공! 모니터링 페이지에서 ' + selectedChild.name + '의 위치가 테스트 좌표로 표시됩니다.';
+    } else {
+      return res.text().then(function(t) { throw new Error(t); });
+    }
+  }).catch(function(err) {
+    el.className = 'test-result fail';
+    el.innerHTML = '❌ 전송 실패: ' + err.message + '<br>Firebase 보안 규칙을 확인하세요.';
+  });
+}
+</script>
+</body>
+</html>
