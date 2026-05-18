@@ -165,6 +165,16 @@
     <div class="my-pins-list" id="myPinsList"></div>
   </div>
 
+  <!-- GPS 게임 -->
+  <div class="card" id="gameEntryCard" style="display:none;">
+    <h2>🎮 GPS 게임</h2>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <a id="gameLink" href="game.html" style="flex:1;display:block;padding:12px;text-align:center;
+        background:linear-gradient(135deg,#6c5ce7,#a29bfe);color:#fff;border-radius:10px;
+        text-decoration:none;font-weight:700;font-size:14px;">🎮 게임 참가</a>
+    </div>
+  </div>
+
   <!-- 보물찾기 -->
   <div class="card" id="treasureHuntCard" style="display:none;">
     <h2>💎 보물찾기</h2>
@@ -303,6 +313,8 @@ function startTracking(child) {
   document.getElementById('sosCard').style.display = '';
   document.getElementById('familyLocCard').style.display = '';
   document.getElementById('distanceBar').style.display = '';
+  document.getElementById('gameEntryCard').style.display = '';
+  document.getElementById('gameLink').href = 'game.html?child=' + child.id;
 
   startGPS(child);
   renderMyPins();

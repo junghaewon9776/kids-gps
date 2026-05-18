@@ -1,0 +1,1386 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>GPS 게임</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* 게임 공통 */
+    .game-header { background:linear-gradient(135deg,#6c5ce7,#a29bfe); }
+    .game-header h1 { font-size:15px; }
+    .game-status-bar {
+      background:#2d3436; color:#fff; padding:8px 12px;
+      display:flex; justify-content:space-between; align-items:center;
+      font-size:12px;
+    }
+    .game-timer { font-size:18px; font-weight:800; font-variant-numeric:tabular-nums; }
+    .team-badge {
+      display:inline-block; padding:3px 10px; border-radius:10px;
+      font-size:12px; font-weight:700; color:#fff;
+    }
+    .team-red { background:#e74c3c; }
+    .team-blue { background:#3498db; }
+
+    /* 로비 */
+    .lobby-card {
+      background:#fff; border-radius:16px; padding:24px; margin:16px 12px;
+      box-shadow:0 4px 20px rgba(0,0,0,0.1); text-align:center;
+    }
+    .game-code {
+      font-size:48px; font-weight:900; letter-spacing:8px; color:#6c5ce7;
+      margin:16px 0; font-family:monospace;
+    }
+    .player-grid {
+      display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:16px 0;
+    }
+    .player-slot {
+      padding:10px; border-radius:8px; border:2px dashed #ddd;
+      font-size:13px; text-align:center; min-height:50px;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+    }
+    .player-slot.filled { border-style:solid; background:#f8f9fa; }
+    .player-slot.ready { border-color:#27ae60; background:#d4edda; }
+    .player-slot .slot-emoji { font-size:24px; }
+    .player-slot .slot-name { font-size:12px; font-weight:600; margin-top:2px; }
+    .player-slot .slot-team { font-size:10px; margin-top:2px; }
+
+    .ready-btn {
+      width:100%; padding:16px; border-radius:12px; font-size:18px; font-weight:700;
+      border:none; cursor:pointer; margin-top:12px; transition:all 0.2s;
+    }
+    .ready-btn.not-ready { background:#dfe6e9; color:#636e72; }
+    .ready-btn.is-ready { background:#00b894; color:#fff; }
+
+    /* 호스트 설정 */
+    .host-panel {
+      background:#fff; border-radius:12px; padding:16px; margin:8px 12px;
+      box-shadow:0 2px 10px rgba(0,0,0,0.08);
+    }
+    .host-panel h3 { font-size:14px; color:#2c3e50; margin-bottom:10px; }
+    .zone-controls { display:flex; gap:6px; flex-wrap:wrap; margin:8px 0; }
+    .zone-btn {
+      padding:8px 14px; border-radius:20px; border:2px solid #ddd;
+      background:#fff; font-size:12px; font-weight:600; cursor:pointer;
+    }
+    .zone-btn.active { border-color:#6c5ce7; background:#f0edff; color:#6c5ce7; }
+    .zone-btn.safe-active { border-color:#27ae60; background:#d4edda; color:#27ae60; }
+    .zone-btn.danger-active { border-color:#e74c3c; background:#ffeaea; color:#e74c3c; }
+
+    /* 게임 중 UI */
+    .game-hud {
+      position:fixed; bottom:0; left:0; right:0; z-index:50;
+      background:rgba(45,52,54,0.95); color:#fff; padding:12px;
+      border-radius:16px 16px 0 0;
+    }
+    .score-row {
+      display:flex; justify-content:space-around; align-items:center;
+      padding:8px 0; font-size:14px;
+    }
+    .score-team { text-align:center; }
+    .score-num { font-size:32px; font-weight:900; }
+    .score-vs { font-size:20px; font-weight:700; opacity:0.5; }
+
+    /* 땅따먹기 격자 */
+    .territory-legend {
+      display:flex; gap:12px; justify-content:center; margin:8px 0;
+      font-size:11px; color:#fff;
+    }
+    .legend-dot {
+      display:inline-block; width:12px; height:12px; border-radius:2px;
+      margin-right:4px; vertical-align:middle;
+    }
+
+    /* 결과 화면 */
+    .result-overlay {
+      position:fixed; inset:0; background:rgba(0,0,0,0.85);
+      z-index:9999; display:flex; align-items:center; justify-content:center;
+    }
+    .result-card {
+      background:#fff; border-radius:20px; padding:32px; text-align:center;
+      max-width:340px; width:90%;
+    }
+    .result-card .trophy { font-size:72px; }
+    .result-card .winner-text { font-size:24px; font-weight:800; margin:12px 0; }
+    .result-card .final-score { font-size:16px; color:#636e72; }
+
+    /* 알림 토스트 */
+    .game-toast {
+      position:fixed; top:80px; left:50%; transform:translateX(-50%);
+      background:#2d3436; color:#fff; padding:12px 20px; border-radius:24px;
+      font-size:14px; font-weight:600; z-index:200;
+      animation:toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards;
+    }
+    @keyframes toastIn { from { opacity:0; transform:translateX(-50%) translateY(-20px); } }
+    @keyframes toastOut { to { opacity:0; transform:translateX(-50%) translateY(-20px); } }
+
+    /* 탈락 오버레이 */
+    .eliminated-overlay {
+      position:fixed; inset:0; background:rgba(231,76,60,0.9);
+      z-index:9998; display:flex; align-items:center; justify-content:center;
+      flex-direction:column; color:#fff;
+    }
+    .eliminated-overlay .elim-icon { font-size:80px; }
+    .eliminated-overlay .elim-text { font-size:24px; font-weight:800; margin:12px 0; }
+    .eliminated-overlay .elim-reason { font-size:14px; opacity:0.8; }
+
+    /* 입장 화면 */
+    .join-screen {
+      display:flex; flex-direction:column; align-items:center;
+      justify-content:center; min-height:80vh; padding:20px;
+    }
+    .join-card {
+      background:#fff; border-radius:16px; padding:32px; text-align:center;
+      box-shadow:0 4px 20px rgba(0,0,0,0.1); max-width:360px; width:100%;
+    }
+    .join-card .join-icon { font-size:64px; margin-bottom:12px; }
+    .code-input {
+      font-size:32px !important; text-align:center; letter-spacing:8px;
+      font-weight:700; text-transform:uppercase; font-family:monospace;
+    }
+
+    .countdown-overlay {
+      position:fixed; inset:0; background:rgba(0,0,0,0.8);
+      z-index:9999; display:flex; align-items:center; justify-content:center;
+    }
+    .countdown-num {
+      font-size:120px; font-weight:900; color:#fff;
+      animation:countPop 1s ease;
+    }
+    @keyframes countPop {
+      0% { transform:scale(2); opacity:0; }
+      50% { transform:scale(1); opacity:1; }
+      100% { transform:scale(0.8); opacity:0; }
+    }
+  </style>
+</head>
+<body>
+<header class="game-header">
+  <h1>🎮 GPS 게임</h1>
+  <nav><a href="index.html">홈</a></nav>
+</header>
+
+<!-- ===== 입장 화면 ===== -->
+<div id="joinScreen" class="join-screen">
+  <div class="join-card">
+    <div class="join-icon">🎮</div>
+    <h2 style="margin-bottom:16px;">게임 참가</h2>
+    <p style="font-size:13px;color:#888;margin-bottom:16px;">방 코드를 입력하세요</p>
+    <input id="joinCode" class="code-input" maxlength="4" placeholder="____"
+      oninput="this.value=this.value.toUpperCase()">
+    <div id="joinChildSelect" style="margin-top:16px;display:none;"></div>
+    <button onclick="joinGame()" style="width:100%;padding:14px;margin-top:16px;
+      border-radius:12px;font-size:16px;font-weight:700;background:#6c5ce7;border:none;color:#fff;">
+      입장하기
+    </button>
+    <div id="joinError" style="color:#e74c3c;font-size:12px;margin-top:8px;min-height:16px;"></div>
+
+    <div style="margin-top:24px;padding-top:16px;border-top:1px solid #eee;">
+      <p style="font-size:12px;color:#aaa;">또는</p>
+      <button onclick="showCreateGame()" style="width:100%;padding:12px;margin-top:8px;
+        border-radius:12px;font-size:14px;font-weight:600;background:#00b894;border:none;color:#fff;">
+        🏁 새 게임 만들기
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 게임 생성 (호스트) ===== -->
+<div id="createScreen" style="display:none;">
+  <div class="container">
+    <div class="lobby-card">
+      <div style="font-size:48px;">🏁</div>
+      <h2 style="margin:12px 0;">새 게임 만들기</h2>
+
+      <label style="text-align:left;">게임 종류</label>
+      <div style="display:flex;gap:8px;margin:8px 0 16px;">
+        <button class="zone-btn active" id="typeFlag" onclick="selectGameType('flag')">🚩 깃발뺏기</button>
+        <button class="zone-btn" id="typeTerritory" onclick="selectGameType('territory')">🗺️ 땅따먹기</button>
+      </div>
+
+      <label style="text-align:left;">제한 시간</label>
+      <select id="timeLimitSel" style="margin-bottom:12px;">
+        <option value="300">5분</option>
+        <option value="600" selected>10분</option>
+        <option value="900">15분</option>
+        <option value="1200">20분</option>
+        <option value="1800">30분</option>
+      </select>
+
+      <label style="text-align:left;">땅따먹기 격자 크기</label>
+      <select id="gridSizeSel" style="margin-bottom:12px;">
+        <option value="10">10m (촘촘)</option>
+        <option value="20" selected>20m (보통)</option>
+        <option value="30">30m (넓음)</option>
+        <option value="50">50m (아주 넓음)</option>
+      </select>
+
+      <button onclick="createGame()" style="width:100%;padding:14px;margin-top:8px;
+        border-radius:12px;font-size:16px;font-weight:700;background:#6c5ce7;border:none;color:#fff;">
+        방 만들기
+      </button>
+      <button onclick="hideCreateGame()" style="width:100%;padding:10px;margin-top:8px;
+        border-radius:12px;font-size:13px;background:#dfe6e9;border:none;color:#636e72;">
+        취소
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 로비 ===== -->
+<div id="lobbyScreen" style="display:none;">
+  <div class="container">
+    <div class="lobby-card">
+      <div style="font-size:13px;color:#888;">방 코드</div>
+      <div class="game-code" id="lobbyCode"></div>
+      <div id="lobbyGameType" style="font-size:14px;color:#6c5ce7;font-weight:600;margin-bottom:12px;"></div>
+
+      <div style="font-size:13px;color:#888;margin-bottom:8px;">참가자</div>
+      <div class="player-grid" id="playerGrid"></div>
+
+      <div id="hostControls" style="display:none;margin-top:16px;">
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <button onclick="shuffleTeams()" style="flex:1;padding:10px;border-radius:8px;
+            font-size:13px;font-weight:600;background:#fdcb6e;border:none;color:#2d3436;">
+            🔀 팀 섞기
+          </button>
+          <button onclick="balanceTeams()" style="flex:1;padding:10px;border-radius:8px;
+            font-size:13px;font-weight:600;background:#74b9ff;border:none;color:#fff;">
+            ⚖️ 팀 균등
+          </button>
+        </div>
+        <button onclick="goToZoneSetup()" id="zoneSetupBtn" style="width:100%;padding:14px;
+          border-radius:12px;font-size:16px;font-weight:700;background:#6c5ce7;border:none;color:#fff;">
+          📍 구역 설정하기
+        </button>
+      </div>
+
+      <div id="playerControls" style="display:none;margin-top:16px;">
+        <button class="ready-btn not-ready" id="readyBtn" onclick="toggleReady()">
+          준비
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 구역 설정 (호스트) ===== -->
+<div id="zoneScreen" style="display:none;">
+  <div class="container">
+    <div class="host-panel">
+      <h3>📍 구역 설정</h3>
+      <p style="font-size:12px;color:#888;margin-bottom:8px;">지도를 터치해서 영역을 그려주세요</p>
+      <div class="zone-controls">
+        <button class="zone-btn safe-active" id="zoneSafeBtn" onclick="setDrawMode('safe')">✅ 안전 구역</button>
+        <button class="zone-btn" id="zoneDangerBtn" onclick="setDrawMode('danger')">⛔ 위험 구역</button>
+        <span id="zoneFlagBtns" style="display:none;">
+          <button class="zone-btn" id="zoneFlagRedBtn" onclick="setDrawMode('flagRed')">🔴 빨강 깃발</button>
+          <button class="zone-btn" id="zoneFlagBlueBtn" onclick="setDrawMode('flagBlue')">🔵 파랑 깃발</button>
+        </span>
+      </div>
+      <div style="font-size:11px;color:#aaa;margin-bottom:8px;" id="drawHint">지도를 눌러 안전 구역 꼭짓점을 찍으세요 (최소 3개)</div>
+    </div>
+
+    <div class="map-wrap">
+      <div id="zoneMap" class="map" style="height:400px;"></div>
+    </div>
+
+    <div class="host-panel" style="margin-top:8px;">
+      <div style="display:flex;gap:8px;">
+        <button onclick="undoZonePoint()" style="flex:1;padding:10px;border-radius:8px;
+          font-size:13px;background:#dfe6e9;border:none;color:#636e72;">↩ 되돌리기</button>
+        <button onclick="clearCurrentZone()" style="flex:1;padding:10px;border-radius:8px;
+          font-size:13px;background:#ffeaa7;border:none;color:#636e72;">🗑 현재 지우기</button>
+      </div>
+      <button onclick="saveZonesAndStart()" id="startGameBtn" style="width:100%;padding:14px;margin-top:12px;
+        border-radius:12px;font-size:16px;font-weight:700;background:#00b894;border:none;color:#fff;">
+        🎮 게임 시작!
+      </button>
+      <button onclick="backToLobby()" style="width:100%;padding:10px;margin-top:8px;
+        border-radius:12px;font-size:13px;background:#dfe6e9;border:none;color:#636e72;">
+        ← 로비로 돌아가기
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 게임 진행 ===== -->
+<div id="gameScreen" style="display:none;">
+  <div class="game-status-bar">
+    <div>
+      <span id="gameTypeLabel"></span>
+      <span class="team-badge" id="myTeamBadge"></span>
+    </div>
+    <div class="game-timer" id="gameTimer">10:00</div>
+  </div>
+
+  <div class="map-wrap">
+    <div id="gameMap" class="map" style="height:calc(100vh - 200px);border-radius:0;"></div>
+    <div class="map-ctrl map-ctrl-right">
+      <button class="map-btn" onclick="gameZoomIn()">+</button>
+      <button class="map-btn" onclick="gameZoomOut()">−</button>
+      <button class="map-btn" onclick="gameFollowMe()" id="followBtn">📍</button>
+    </div>
+  </div>
+
+  <div class="game-hud" id="gameHud">
+    <div class="score-row">
+      <div class="score-team">
+        <div style="color:#e74c3c;font-weight:700;">🔴 빨강</div>
+        <div class="score-num" id="scoreRed" style="color:#e74c3c;">0</div>
+      </div>
+      <div class="score-vs">VS</div>
+      <div class="score-team">
+        <div style="color:#3498db;font-weight:700;">🔵 파랑</div>
+        <div class="score-num" id="scoreBlue" style="color:#3498db;">0</div>
+      </div>
+    </div>
+    <div id="gameMessage" style="text-align:center;font-size:12px;color:#b2bec3;margin-top:4px;"></div>
+  </div>
+</div>
+
+<!-- ===== 결과 ===== -->
+<div id="resultOverlay" class="result-overlay" style="display:none;">
+  <div class="result-card">
+    <div class="trophy" id="resultEmoji">🏆</div>
+    <div class="winner-text" id="resultTitle"></div>
+    <div class="final-score" id="resultScore"></div>
+    <div id="resultDetail" style="margin-top:12px;font-size:13px;color:#888;"></div>
+    <button onclick="leaveGame()" style="width:100%;padding:14px;margin-top:20px;
+      border-radius:12px;font-size:16px;font-weight:700;background:#6c5ce7;border:none;color:#fff;">
+      나가기
+    </button>
+  </div>
+</div>
+
+<!-- ===== 탈락 ===== -->
+<div id="eliminatedOverlay" class="eliminated-overlay" style="display:none;">
+  <div class="elim-icon">💀</div>
+  <div class="elim-text">탈락!</div>
+  <div class="elim-reason" id="elimReason"></div>
+  <p style="font-size:12px;margin-top:16px;opacity:0.6;">게임은 계속 진행 중...</p>
+</div>
+
+<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=f3f8fa6decb5e2185b09d6bf70ef525b&libraries=services"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="common.js"></script>
+<script>
+// ===== 상태 =====
+var currentScreen = 'join';
+var gameId = null;
+var gameRef = null;
+var gameData = null;
+var myPlayerId = null;
+var myPlayerName = '';
+var myPlayerEmoji = '🎮';
+var isHost = false;
+var gameMap = null;
+var zoneMap = null;
+var followMode = true;
+var myLat = null, myLng = null;
+var watchId = null;
+var timerInterval = null;
+var gameMarkers = {};
+var zonePolygons = [];
+var dangerPolygons = [];
+var gridOverlays = {};
+var flagMarkers = {};
+
+// 구역 설정용
+var drawMode = 'safe';
+var drawPoints = { safe: [], danger: [], flagRed: null, flagBlue: null };
+var drawPolyline = null;
+var drawMarkers = [];
+var dangerZones = [];
+var dangerDrawMarkers = [];
+
+// ===== 초기화 =====
+initFirebaseSync();
+
+var urlParams = new URLSearchParams(location.search);
+var urlCode = urlParams.get('code');
+var urlChildId = urlParams.get('child');
+if (urlCode) {
+  document.getElementById('joinCode').value = urlCode.toUpperCase();
+}
+
+onDataReady(function() {
+  renderChildSelect();
+  if (urlChildId) {
+    myPlayerId = urlChildId;
+    var ch = getChildren().find(function(c) { return c.id === urlChildId; });
+    if (ch) { myPlayerName = ch.name; myPlayerEmoji = ch.emoji || '🎮'; }
+  }
+  if (urlCode && myPlayerId) {
+    joinGame();
+  }
+});
+
+function renderChildSelect() {
+  var children = getChildren();
+  var parents = getParents();
+  var el = document.getElementById('joinChildSelect');
+  if (!children.length && !parents.length) {
+    el.style.display = 'none';
+    return;
+  }
+  el.style.display = 'block';
+  var html = '<div style="font-size:12px;color:#888;margin-bottom:6px;">누구로 참가?</div><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">';
+  children.forEach(function(c) {
+    html += '<button onclick="selectPlayer(\'' + c.id + '\',\'' + (c.name||'') + '\',\'' + (c.emoji||'🎮') + '\',\'child\')" '
+      + 'class="zone-btn" data-pid="' + c.id + '">' + (c.emoji||'🎮') + ' ' + c.name + '</button>';
+  });
+  parents.forEach(function(p) {
+    html += '<button onclick="selectPlayer(\'' + p.id + '\',\'' + (p.name||'') + '\',\'👨\',\'parent\')" '
+      + 'class="zone-btn" data-pid="' + p.id + '">' + '👨 ' + p.name + '</button>';
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function selectPlayer(id, name, emoji, role) {
+  myPlayerId = id;
+  myPlayerName = name;
+  myPlayerEmoji = emoji;
+  document.querySelectorAll('#joinChildSelect .zone-btn').forEach(function(btn) {
+    btn.classList.toggle('active', btn.getAttribute('data-pid') === id);
+  });
+}
+
+// ===== 화면 전환 =====
+function showScreen(name) {
+  currentScreen = name;
+  ['joinScreen','createScreen','lobbyScreen','zoneScreen','gameScreen'].forEach(function(id) {
+    document.getElementById(id).style.display = 'none';
+  });
+  document.getElementById(name + 'Screen').style.display = '';
+}
+
+function showCreateGame() { showScreen('create'); }
+function hideCreateGame() { showScreen('join'); }
+
+// ===== 게임 타입 선택 =====
+var selectedGameType = 'flag';
+function selectGameType(type) {
+  selectedGameType = type;
+  document.getElementById('typeFlag').classList.toggle('active', type === 'flag');
+  document.getElementById('typeTerritory').classList.toggle('active', type === 'territory');
+  document.getElementById('gridSizeSel').closest('label').style.display = type === 'territory' ? '' : 'none';
+  document.getElementById('gridSizeSel').style.display = type === 'territory' ? '' : 'none';
+}
+
+// ===== 게임 생성 =====
+function createGame() {
+  if (!myPlayerId) {
+    alert('먼저 참가자를 선택하세요');
+    return;
+  }
+  var code = generateGameCode();
+  gameId = uid();
+  isHost = true;
+
+  var data = {
+    code: code,
+    type: selectedGameType,
+    status: 'waiting',
+    host: myPlayerId,
+    timeLimit: parseInt(document.getElementById('timeLimitSel').value),
+    gridSize: parseInt(document.getElementById('gridSizeSel').value),
+    createdAt: Date.now(),
+    safeZone: null,
+    dangerZones: null,
+    flags: null,
+    scores: { red: 0, blue: 0 }
+  };
+
+  fbDb.ref('/games/' + gameId).set(data);
+  fbDb.ref('/games/' + gameId + '/players/' + myPlayerId).set({
+    name: myPlayerName,
+    emoji: myPlayerEmoji,
+    team: 'red',
+    ready: true,
+    eliminated: false,
+    isHost: true
+  });
+
+  subscribeGame();
+  showScreen('lobby');
+}
+
+function generateGameCode() {
+  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var code = '';
+  for (var i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+// ===== 게임 참가 =====
+function joinGame() {
+  var code = document.getElementById('joinCode').value.trim().toUpperCase();
+  if (code.length !== 4) {
+    document.getElementById('joinError').textContent = '4자리 코드를 입력하세요';
+    return;
+  }
+  if (!myPlayerId) {
+    document.getElementById('joinError').textContent = '참가자를 선택하세요';
+    return;
+  }
+
+  fbDb.ref('/games').orderByChild('code').equalTo(code).once('value', function(snap) {
+    var games = snap.val();
+    if (!games) {
+      document.getElementById('joinError').textContent = '방을 찾을 수 없습니다';
+      return;
+    }
+    var ids = Object.keys(games);
+    var found = null;
+    for (var i = 0; i < ids.length; i++) {
+      if (games[ids[i]].status === 'waiting' || games[ids[i]].status === 'zones') {
+        found = ids[i];
+        break;
+      }
+    }
+    if (!found) {
+      document.getElementById('joinError').textContent = '참가할 수 있는 방이 없습니다';
+      return;
+    }
+
+    gameId = found;
+    isHost = false;
+
+    var players = games[found].players || {};
+    var count = Object.keys(players).length;
+    var team = count % 2 === 0 ? 'red' : 'blue';
+
+    fbDb.ref('/games/' + gameId + '/players/' + myPlayerId).set({
+      name: myPlayerName,
+      emoji: myPlayerEmoji,
+      team: team,
+      ready: false,
+      eliminated: false,
+      isHost: false
+    });
+
+    subscribeGame();
+    showScreen('lobby');
+  });
+}
+
+// ===== Firebase 구독 =====
+function subscribeGame() {
+  if (gameRef) gameRef.off();
+  gameRef = fbDb.ref('/games/' + gameId);
+  gameRef.on('value', function(snap) {
+    gameData = snap.val();
+    if (!gameData) return;
+    onGameUpdate();
+  });
+}
+
+function onGameUpdate() {
+  if (!gameData) return;
+
+  if (gameData.status === 'waiting' || gameData.status === 'zones') {
+    if (currentScreen !== 'lobby' && currentScreen !== 'zone') {
+      showScreen('lobby');
+    }
+    renderLobby();
+  }
+
+  if (gameData.status === 'countdown') {
+    showCountdown();
+  }
+
+  if (gameData.status === 'playing') {
+    if (currentScreen !== 'game') {
+      startGamePlay();
+    }
+    updateGameState();
+  }
+
+  if (gameData.status === 'finished') {
+    showResults();
+  }
+}
+
+// ===== 로비 렌더 =====
+function renderLobby() {
+  document.getElementById('lobbyCode').textContent = gameData.code;
+  var typeLabels = { flag: '🚩 깃발뺏기', territory: '🗺️ 땅따먹기' };
+  document.getElementById('lobbyGameType').textContent = typeLabels[gameData.type] || gameData.type;
+
+  var players = gameData.players || {};
+  var pids = Object.keys(players);
+  var grid = document.getElementById('playerGrid');
+  var html = '';
+
+  var redPlayers = pids.filter(function(id) { return players[id].team === 'red'; });
+  var bluePlayers = pids.filter(function(id) { return players[id].team === 'blue'; });
+  var maxSlots = Math.max(redPlayers.length, bluePlayers.length, 2);
+
+  for (var i = 0; i < maxSlots; i++) {
+    var rp = redPlayers[i] ? players[redPlayers[i]] : null;
+    var bp = bluePlayers[i] ? players[bluePlayers[i]] : null;
+
+    if (rp) {
+      html += '<div class="player-slot filled' + (rp.ready ? ' ready' : '') + '" style="border-color:#e74c3c;">'
+        + '<div class="slot-emoji">' + (rp.emoji || '🎮') + '</div>'
+        + '<div class="slot-name">' + rp.name + '</div>'
+        + '<div class="slot-team" style="color:#e74c3c;">🔴 빨강' + (rp.ready ? ' ✅' : '') + '</div></div>';
+    } else {
+      html += '<div class="player-slot"><span style="color:#ccc;">🔴 빈자리</span></div>';
+    }
+
+    if (bp) {
+      html += '<div class="player-slot filled' + (bp.ready ? ' ready' : '') + '" style="border-color:#3498db;">'
+        + '<div class="slot-emoji">' + (bp.emoji || '🎮') + '</div>'
+        + '<div class="slot-name">' + bp.name + '</div>'
+        + '<div class="slot-team" style="color:#3498db;">🔵 파랑' + (bp.ready ? ' ✅' : '') + '</div></div>';
+    } else {
+      html += '<div class="player-slot"><span style="color:#ccc;">🔵 빈자리</span></div>';
+    }
+  }
+  grid.innerHTML = html;
+
+  document.getElementById('hostControls').style.display = isHost ? '' : 'none';
+  document.getElementById('playerControls').style.display = isHost ? 'none' : '';
+
+  if (!isHost) {
+    var me = players[myPlayerId];
+    var btn = document.getElementById('readyBtn');
+    if (me && me.ready) {
+      btn.className = 'ready-btn is-ready';
+      btn.textContent = '✅ 준비 완료!';
+    } else {
+      btn.className = 'ready-btn not-ready';
+      btn.textContent = '준비';
+    }
+  }
+}
+
+// ===== 팀 관리 =====
+function shuffleTeams() {
+  var players = gameData.players || {};
+  var pids = Object.keys(players);
+  for (var i = pids.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var t = pids[i]; pids[i] = pids[j]; pids[j] = t;
+  }
+  var updates = {};
+  pids.forEach(function(id, idx) {
+    updates['/games/' + gameId + '/players/' + id + '/team'] = idx % 2 === 0 ? 'red' : 'blue';
+  });
+  fbDb.ref().update(updates);
+}
+
+function balanceTeams() {
+  var players = gameData.players || {};
+  var pids = Object.keys(players);
+  var updates = {};
+  pids.forEach(function(id, idx) {
+    updates['/games/' + gameId + '/players/' + id + '/team'] = idx % 2 === 0 ? 'red' : 'blue';
+  });
+  fbDb.ref().update(updates);
+}
+
+function toggleReady() {
+  var players = gameData.players || {};
+  var me = players[myPlayerId];
+  if (!me) return;
+  fbDb.ref('/games/' + gameId + '/players/' + myPlayerId + '/ready').set(!me.ready);
+}
+
+// ===== 구역 설정 =====
+function goToZoneSetup() {
+  showScreen('zone');
+  gameRef.update({ status: 'zones' });
+  setTimeout(initZoneMap, 200);
+}
+
+function backToLobby() {
+  showScreen('lobby');
+  gameRef.update({ status: 'waiting' });
+}
+
+function initZoneMap() {
+  if (zoneMap) return;
+
+  if (gameData.type === 'flag') {
+    document.getElementById('zoneFlagBtns').style.display = '';
+  }
+
+  var center = new kakao.maps.LatLng(35.35, 126.42);
+  zoneMap = new kakao.maps.Map(document.getElementById('zoneMap'), {
+    center: center, level: 4
+  });
+
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(function(pos) {
+      zoneMap.setCenter(new kakao.maps.LatLng(pos.coords.latitude, pos.coords.longitude));
+    });
+  }
+
+  kakao.maps.event.addListener(zoneMap, 'click', function(e) {
+    var lat = e.latLng.getLat();
+    var lng = e.latLng.getLng();
+    addZonePoint(lat, lng);
+  });
+}
+
+function setDrawMode(mode) {
+  drawMode = mode;
+  ['zoneSafeBtn','zoneDangerBtn','zoneFlagRedBtn','zoneFlagBlueBtn'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'zone-btn';
+  });
+  var btnMap = { safe:'zoneSafeBtn', danger:'zoneDangerBtn', flagRed:'zoneFlagRedBtn', flagBlue:'zoneFlagBlueBtn' };
+  var clsMap = { safe:'safe-active', danger:'danger-active', flagRed:'active', flagBlue:'active' };
+  var btn = document.getElementById(btnMap[mode]);
+  if (btn) btn.classList.add(clsMap[mode]);
+
+  var hints = {
+    safe: '지도를 눌러 안전 구역 꼭짓점을 찍으세요 (최소 3개)',
+    danger: '지도를 눌러 위험 구역 꼭짓점을 찍으세요',
+    flagRed: '지도를 눌러 빨강 팀 깃발 위치를 찍으세요',
+    flagBlue: '지도를 눌러 파랑 팀 깃발 위치를 찍으세요'
+  };
+  document.getElementById('drawHint').textContent = hints[mode];
+}
+
+function addZonePoint(lat, lng) {
+  if (drawMode === 'flagRed' || drawMode === 'flagBlue') {
+    var key = drawMode === 'flagRed' ? 'flagRed' : 'flagBlue';
+    drawPoints[key] = { lat: lat, lng: lng };
+    renderZoneOverlays();
+    return;
+  }
+
+  if (drawMode === 'safe') {
+    drawPoints.safe.push({ lat: lat, lng: lng });
+  } else if (drawMode === 'danger') {
+    drawPoints.danger.push({ lat: lat, lng: lng });
+  }
+  renderZoneOverlays();
+}
+
+function undoZonePoint() {
+  if (drawMode === 'safe' && drawPoints.safe.length) drawPoints.safe.pop();
+  else if (drawMode === 'danger' && drawPoints.danger.length) drawPoints.danger.pop();
+  else if (drawMode === 'flagRed') drawPoints.flagRed = null;
+  else if (drawMode === 'flagBlue') drawPoints.flagBlue = null;
+  renderZoneOverlays();
+}
+
+function clearCurrentZone() {
+  if (drawMode === 'safe') drawPoints.safe = [];
+  else if (drawMode === 'danger') drawPoints.danger = [];
+  else if (drawMode === 'flagRed') drawPoints.flagRed = null;
+  else if (drawMode === 'flagBlue') drawPoints.flagBlue = null;
+  renderZoneOverlays();
+}
+
+function renderZoneOverlays() {
+  zonePolygons.forEach(function(p) { p.setMap(null); });
+  zonePolygons = [];
+  drawMarkers.forEach(function(m) { m.setMap(null); });
+  drawMarkers = [];
+
+  if (drawPoints.safe.length >= 3) {
+    var path = drawPoints.safe.map(function(p) { return new kakao.maps.LatLng(p.lat, p.lng); });
+    var poly = new kakao.maps.Polygon({
+      path: path,
+      strokeWeight: 3, strokeColor: '#27ae60', strokeOpacity: 0.8,
+      fillColor: '#27ae60', fillOpacity: 0.15
+    });
+    poly.setMap(zoneMap);
+    zonePolygons.push(poly);
+  }
+  drawPoints.safe.forEach(function(p, i) {
+    var m = new kakao.maps.Marker({
+      position: new kakao.maps.LatLng(p.lat, p.lng),
+      map: zoneMap,
+      image: pinMarkerImage('✅', '#27ae60')
+    });
+    drawMarkers.push(m);
+  });
+
+  if (drawPoints.danger.length >= 3) {
+    var dpath = drawPoints.danger.map(function(p) { return new kakao.maps.LatLng(p.lat, p.lng); });
+    var dpoly = new kakao.maps.Polygon({
+      path: dpath,
+      strokeWeight: 3, strokeColor: '#e74c3c', strokeOpacity: 0.8,
+      fillColor: '#e74c3c', fillOpacity: 0.2
+    });
+    dpoly.setMap(zoneMap);
+    zonePolygons.push(dpoly);
+  }
+  drawPoints.danger.forEach(function(p) {
+    var m = new kakao.maps.Marker({
+      position: new kakao.maps.LatLng(p.lat, p.lng),
+      map: zoneMap,
+      image: pinMarkerImage('⛔', '#e74c3c')
+    });
+    drawMarkers.push(m);
+  });
+
+  if (drawPoints.flagRed) {
+    var fm = new kakao.maps.Marker({
+      position: new kakao.maps.LatLng(drawPoints.flagRed.lat, drawPoints.flagRed.lng),
+      map: zoneMap,
+      image: pinMarkerImage('🚩', '#e74c3c')
+    });
+    drawMarkers.push(fm);
+  }
+  if (drawPoints.flagBlue) {
+    var fm2 = new kakao.maps.Marker({
+      position: new kakao.maps.LatLng(drawPoints.flagBlue.lat, drawPoints.flagBlue.lng),
+      map: zoneMap,
+      image: pinMarkerImage('🚩', '#3498db')
+    });
+    drawMarkers.push(fm2);
+  }
+}
+
+function saveZonesAndStart() {
+  if (drawPoints.safe.length < 3) {
+    alert('안전 구역을 최소 3개 꼭짓점으로 그려주세요');
+    return;
+  }
+  if (gameData.type === 'flag') {
+    if (!drawPoints.flagRed || !drawPoints.flagBlue) {
+      alert('빨강/파랑 깃발 위치를 모두 찍어주세요');
+      return;
+    }
+  }
+
+  var players = gameData.players || {};
+  var allReady = Object.keys(players).every(function(id) {
+    return players[id].ready || players[id].isHost;
+  });
+
+  var updates = {
+    safeZone: drawPoints.safe,
+    dangerZones: drawPoints.danger.length >= 3 ? [drawPoints.danger] : null,
+    status: 'countdown',
+    countdownStart: Date.now()
+  };
+
+  if (gameData.type === 'flag') {
+    updates.flags = {
+      red: drawPoints.flagRed,
+      blue: drawPoints.flagBlue
+    };
+    updates['flagState'] = {
+      red: { holder: null, atBase: true, lat: drawPoints.flagRed.lat, lng: drawPoints.flagRed.lng },
+      blue: { holder: null, atBase: true, lat: drawPoints.flagBlue.lat, lng: drawPoints.flagBlue.lng }
+    };
+  }
+
+  gameRef.update(updates);
+}
+
+// ===== 카운트다운 =====
+function showCountdown() {
+  if (document.getElementById('countdownOverlay')) return;
+
+  var overlay = document.createElement('div');
+  overlay.id = 'countdownOverlay';
+  overlay.className = 'countdown-overlay';
+  document.body.appendChild(overlay);
+
+  var count = 3;
+  function tick() {
+    if (count > 0) {
+      overlay.innerHTML = '<div class="countdown-num">' + count + '</div>';
+      try { navigator.vibrate(100); } catch(e) {}
+      count--;
+      setTimeout(tick, 1000);
+    } else {
+      overlay.innerHTML = '<div class="countdown-num" style="font-size:60px;">START!</div>';
+      try { navigator.vibrate([100,50,100,50,200]); } catch(e) {}
+      setTimeout(function() {
+        overlay.remove();
+        if (isHost) {
+          gameRef.update({ status: 'playing', startedAt: Date.now() });
+        }
+      }, 1000);
+    }
+  }
+  tick();
+}
+
+// ===== 게임 시작 =====
+function startGamePlay() {
+  showScreen('game');
+  startGPS();
+
+  var typeLabels = { flag: '🚩 깃발뺏기', territory: '🗺️ 땅따먹기' };
+  document.getElementById('gameTypeLabel').textContent = typeLabels[gameData.type] + ' ';
+
+  var me = (gameData.players || {})[myPlayerId];
+  var badge = document.getElementById('myTeamBadge');
+  if (me) {
+    badge.textContent = me.team === 'red' ? '🔴 빨강' : '🔵 파랑';
+    badge.className = 'team-badge ' + (me.team === 'red' ? 'team-red' : 'team-blue');
+  }
+
+  setTimeout(initGameMap, 200);
+  startTimer();
+}
+
+function initGameMap() {
+  if (gameMap) return;
+  var center = new kakao.maps.LatLng(35.35, 126.42);
+  if (gameData.safeZone && gameData.safeZone.length) {
+    var avg = gameData.safeZone.reduce(function(a, p) { return { lat: a.lat + p.lat, lng: a.lng + p.lng }; }, { lat:0, lng:0 });
+    center = new kakao.maps.LatLng(avg.lat / gameData.safeZone.length, avg.lng / gameData.safeZone.length);
+  }
+
+  gameMap = new kakao.maps.Map(document.getElementById('gameMap'), {
+    center: center, level: 3
+  });
+
+  drawGameZones();
+}
+
+function drawGameZones() {
+  if (!gameMap || !gameData) return;
+
+  if (gameData.safeZone && gameData.safeZone.length >= 3) {
+    var path = gameData.safeZone.map(function(p) { return new kakao.maps.LatLng(p.lat, p.lng); });
+    var poly = new kakao.maps.Polygon({
+      path: path,
+      strokeWeight: 3, strokeColor: '#27ae60', strokeOpacity: 0.8, strokeStyle: 'dashed',
+      fillColor: '#27ae60', fillOpacity: 0.08
+    });
+    poly.setMap(gameMap);
+  }
+
+  if (gameData.dangerZones) {
+    gameData.dangerZones.forEach(function(zone) {
+      if (zone.length < 3) return;
+      var dp = zone.map(function(p) { return new kakao.maps.LatLng(p.lat, p.lng); });
+      var dpoly = new kakao.maps.Polygon({
+        path: dp,
+        strokeWeight: 2, strokeColor: '#e74c3c', strokeOpacity: 0.8,
+        fillColor: '#e74c3c', fillOpacity: 0.2
+      });
+      dpoly.setMap(gameMap);
+    });
+  }
+
+  if (gameData.type === 'flag' && gameData.flags) {
+    if (gameData.flags.red) {
+      var rm = new kakao.maps.Marker({
+        position: new kakao.maps.LatLng(gameData.flags.red.lat, gameData.flags.red.lng),
+        map: gameMap,
+        image: pinMarkerImage('🚩', '#e74c3c')
+      });
+      flagMarkers.red = rm;
+    }
+    if (gameData.flags.blue) {
+      var bm = new kakao.maps.Marker({
+        position: new kakao.maps.LatLng(gameData.flags.blue.lat, gameData.flags.blue.lng),
+        map: gameMap,
+        image: pinMarkerImage('🚩', '#3498db')
+      });
+      flagMarkers.blue = bm;
+    }
+  }
+}
+
+// ===== GPS =====
+function startGPS() {
+  if (watchId) return;
+  watchId = navigator.geolocation.watchPosition(function(pos) {
+    myLat = pos.coords.latitude;
+    myLng = pos.coords.longitude;
+
+    fbDb.ref('/games/' + gameId + '/playerLocations/' + myPlayerId).set({
+      lat: myLat, lng: myLng, timestamp: Date.now()
+    });
+
+    if (followMode && gameMap) {
+      gameMap.setCenter(new kakao.maps.LatLng(myLat, myLng));
+    }
+
+    checkZoneBounds();
+    if (gameData && gameData.type === 'flag') checkFlagInteraction();
+    if (gameData && gameData.type === 'territory') claimTerritoryCell();
+
+  }, function(err) {}, {
+    enableHighAccuracy: true, maximumAge: 3000, timeout: 10000
+  });
+}
+
+function gameZoomIn() { if (gameMap) gameMap.setLevel(gameMap.getLevel() - 1); }
+function gameZoomOut() { if (gameMap) gameMap.setLevel(gameMap.getLevel() + 1); }
+function gameFollowMe() {
+  followMode = true;
+  if (myLat && gameMap) gameMap.setCenter(new kakao.maps.LatLng(myLat, myLng));
+}
+
+// ===== 구역 체크 =====
+function checkZoneBounds() {
+  if (!myLat || !gameData || gameData.status !== 'playing') return;
+  var me = (gameData.players || {})[myPlayerId];
+  if (!me || me.eliminated) return;
+
+  if (gameData.safeZone && gameData.safeZone.length >= 3) {
+    if (!isInsidePolygon(myLat, myLng, gameData.safeZone)) {
+      eliminate('안전 구역을 벗어났습니다!');
+      return;
+    }
+  }
+
+  if (gameData.dangerZones) {
+    for (var i = 0; i < gameData.dangerZones.length; i++) {
+      var zone = gameData.dangerZones[i];
+      if (zone.length >= 3 && isInsidePolygon(myLat, myLng, zone)) {
+        eliminate('위험 구역에 진입했습니다!');
+        return;
+      }
+    }
+  }
+}
+
+function isInsidePolygon(lat, lng, polygon) {
+  var inside = false;
+  var n = polygon.length;
+  for (var i = 0, j = n - 1; i < n; j = i++) {
+    var yi = polygon[i].lat, xi = polygon[i].lng;
+    var yj = polygon[j].lat, xj = polygon[j].lng;
+    if ((yi > lat) !== (yj > lat) && lng < (xj - xi) * (lat - yi) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+function eliminate(reason) {
+  fbDb.ref('/games/' + gameId + '/players/' + myPlayerId + '/eliminated').set(true);
+  fbDb.ref('/games/' + gameId + '/players/' + myPlayerId + '/elimReason').set(reason);
+  document.getElementById('elimReason').textContent = reason;
+  document.getElementById('eliminatedOverlay').style.display = 'flex';
+  try { navigator.vibrate([500, 200, 500]); } catch(e) {}
+}
+
+// ===== 깃발뺏기 로직 =====
+function checkFlagInteraction() {
+  if (!myLat || !gameData || !gameData.flagState) return;
+  var me = (gameData.players || {})[myPlayerId];
+  if (!me || me.eliminated) return;
+
+  var myTeam = me.team;
+  var enemyTeam = myTeam === 'red' ? 'blue' : 'red';
+  var enemyFlag = gameData.flagState[enemyTeam];
+  var myFlag = gameData.flagState[myTeam];
+
+  if (enemyFlag && !enemyFlag.holder && enemyFlag.lat && enemyFlag.lng) {
+    var d = distance(myLat, myLng, enemyFlag.lat, enemyFlag.lng);
+    if (d < 15) {
+      fbDb.ref('/games/' + gameId + '/flagState/' + enemyTeam).update({
+        holder: myPlayerId, atBase: false
+      });
+      showToast('🚩 상대 깃발을 뺏었다!');
+      try { navigator.vibrate([100, 50, 100]); } catch(e) {}
+    }
+  }
+
+  if (enemyFlag && enemyFlag.holder === myPlayerId) {
+    fbDb.ref('/games/' + gameId + '/flagState/' + enemyTeam).update({
+      lat: myLat, lng: myLng
+    });
+
+    if (myFlag && myFlag.atBase) {
+      var homeFlag = gameData.flags[myTeam];
+      var dHome = distance(myLat, myLng, homeFlag.lat, homeFlag.lng);
+      if (dHome < 15) {
+        var newScore = ((gameData.scores || {})[myTeam] || 0) + 1;
+        var updates = {};
+        updates['scores/' + myTeam] = newScore;
+        updates['flagState/' + enemyTeam] = {
+          holder: null, atBase: true,
+          lat: gameData.flags[enemyTeam].lat, lng: gameData.flags[enemyTeam].lng
+        };
+        gameRef.update(updates);
+        showToast('🎉 득점! ' + myTeam.toUpperCase() + ' ' + newScore + '점!');
+        try { navigator.vibrate([200, 100, 200, 100, 400]); } catch(e) {}
+      }
+    }
+  }
+
+  // 태그 (상대팀 근처 10m → 깃발 드롭)
+  var locs = gameData.playerLocations || {};
+  var players = gameData.players || {};
+  Object.keys(locs).forEach(function(pid) {
+    if (pid === myPlayerId) return;
+    var p = players[pid];
+    if (!p || p.team === myTeam || p.eliminated) return;
+    var loc = locs[pid];
+    if (!loc) return;
+    var d = distance(myLat, myLng, loc.lat, loc.lng);
+    if (d < 10) {
+      // 내가 깃발 들고 있고 적이 근처 → 드롭
+      if (enemyFlag && enemyFlag.holder === myPlayerId) {
+        fbDb.ref('/games/' + gameId + '/flagState/' + enemyTeam).update({
+          holder: null, atBase: false, lat: myLat, lng: myLng
+        });
+        showToast('💀 태그 당했다! 깃발을 놓쳤어!');
+        try { navigator.vibrate([500]); } catch(e) {}
+      }
+    }
+  });
+}
+
+// ===== 땅따먹기 로직 =====
+function claimTerritoryCell() {
+  if (!myLat || !gameData) return;
+  var me = (gameData.players || {})[myPlayerId];
+  if (!me || me.eliminated) return;
+
+  var gridSize = gameData.gridSize || 20;
+  var mPerDegLat = 111320;
+  var mPerDegLng = 111320 * Math.cos(myLat * Math.PI / 180);
+
+  var cellX = Math.floor(myLng * mPerDegLng / gridSize);
+  var cellY = Math.floor(myLat * mPerDegLat / gridSize);
+  var cellKey = cellX + '_' + cellY;
+
+  var existing = (gameData.grid || {})[cellKey];
+  if (existing && existing.team === me.team) return;
+
+  fbDb.ref('/games/' + gameId + '/grid/' + cellKey).set({
+    team: me.team,
+    claimedBy: myPlayerId,
+    timestamp: Date.now()
+  });
+
+  if (existing && existing.team !== me.team) {
+    showToast('⚔️ 상대 땅을 뺏었다!');
+  }
+}
+
+// ===== 게임 상태 업데이트 =====
+function updateGameState() {
+  if (!gameData || !gameMap) return;
+
+  updatePlayerMarkers();
+  updateScores();
+
+  if (gameData.type === 'flag') updateFlagMarkers();
+  if (gameData.type === 'territory') updateTerritoryGrid();
+}
+
+function updatePlayerMarkers() {
+  var locs = gameData.playerLocations || {};
+  var players = gameData.players || {};
+
+  Object.keys(locs).forEach(function(pid) {
+    var loc = locs[pid];
+    var p = players[pid];
+    if (!loc || !p) return;
+
+    var pos = new kakao.maps.LatLng(loc.lat, loc.lng);
+    var color = p.team === 'red' ? '#e74c3c' : '#3498db';
+    if (p.eliminated) color = '#95a5a6';
+
+    if (gameMarkers[pid]) {
+      gameMarkers[pid].setPosition(pos);
+    } else {
+      var emoji = p.emoji || '🎮';
+      if (p.eliminated) emoji = '💀';
+      gameMarkers[pid] = new kakao.maps.Marker({
+        position: pos,
+        map: gameMap,
+        image: emojiMarkerImage(emoji, color, 36)
+      });
+    }
+  });
+}
+
+function updateFlagMarkers() {
+  if (!gameData.flagState) return;
+  ['red', 'blue'].forEach(function(team) {
+    var fs = gameData.flagState[team];
+    if (!fs || !fs.lat) return;
+    var pos = new kakao.maps.LatLng(fs.lat, fs.lng);
+    if (flagMarkers[team]) {
+      flagMarkers[team].setPosition(pos);
+    }
+  });
+
+  var me = (gameData.players || {})[myPlayerId];
+  var msg = '';
+  if (me) {
+    var enemyTeam = me.team === 'red' ? 'blue' : 'red';
+    var ef = gameData.flagState[enemyTeam];
+    if (ef && ef.holder === myPlayerId) {
+      msg = '🚩 깃발을 들고 있다! 우리 진영으로 돌아가!';
+    } else if (ef && ef.holder) {
+      var holder = (gameData.players || {})[ef.holder];
+      msg = '🚩 ' + (holder ? holder.name : '누군가') + '이(가) 상대 깃발을 들고 있다!';
+    }
+  }
+  document.getElementById('gameMessage').textContent = msg;
+}
+
+function updateTerritoryGrid() {
+  var grid = gameData.grid || {};
+  var gridSize = gameData.gridSize || 20;
+  var mPerDegLat = 111320;
+  var mPerDegLng = 111320 * Math.cos((myLat || 35.35) * Math.PI / 180);
+  var dLat = gridSize / mPerDegLat;
+  var dLng = gridSize / mPerDegLng;
+
+  Object.keys(grid).forEach(function(key) {
+    if (gridOverlays[key]) return;
+    var parts = key.split('_');
+    var cx = parseInt(parts[0]);
+    var cy = parseInt(parts[1]);
+    var sw = new kakao.maps.LatLng(cy * dLat, cx * dLng);
+    var ne = new kakao.maps.LatLng((cy + 1) * dLat, (cx + 1) * dLng);
+
+    var color = grid[key].team === 'red' ? '#e74c3c' : '#3498db';
+    var rect = new kakao.maps.Rectangle({
+      bounds: new kakao.maps.LatLngBounds(sw, ne),
+      strokeWeight: 1, strokeColor: color, strokeOpacity: 0.5,
+      fillColor: color, fillOpacity: 0.35
+    });
+    rect.setMap(gameMap);
+    gridOverlays[key] = { rect: rect, team: grid[key].team };
+  });
+
+  Object.keys(gridOverlays).forEach(function(key) {
+    if (grid[key] && grid[key].team !== gridOverlays[key].team) {
+      gridOverlays[key].rect.setMap(null);
+      delete gridOverlays[key];
+    }
+  });
+
+  var redCount = 0, blueCount = 0;
+  Object.keys(grid).forEach(function(k) {
+    if (grid[k].team === 'red') redCount++;
+    else blueCount++;
+  });
+  document.getElementById('gameMessage').textContent = '🔴 ' + redCount + '칸  vs  🔵 ' + blueCount + '칸';
+}
+
+function updateScores() {
+  var scores = gameData.scores || { red: 0, blue: 0 };
+
+  if (gameData.type === 'territory') {
+    var grid = gameData.grid || {};
+    scores = { red: 0, blue: 0 };
+    Object.keys(grid).forEach(function(k) {
+      if (grid[k].team === 'red') scores.red++;
+      else scores.blue++;
+    });
+  }
+
+  document.getElementById('scoreRed').textContent = scores.red;
+  document.getElementById('scoreBlue').textContent = scores.blue;
+}
+
+// ===== 타이머 =====
+function startTimer() {
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(function() {
+    if (!gameData || gameData.status !== 'playing') return;
+    var elapsed = Math.floor((Date.now() - gameData.startedAt) / 1000);
+    var remaining = (gameData.timeLimit || 600) - elapsed;
+    if (remaining <= 0) {
+      clearInterval(timerInterval);
+      document.getElementById('gameTimer').textContent = '00:00';
+      if (isHost) {
+        gameRef.update({ status: 'finished', finishedAt: Date.now() });
+      }
+      return;
+    }
+    var m = Math.floor(remaining / 60);
+    var s = remaining % 60;
+    document.getElementById('gameTimer').textContent =
+      (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+
+    if (remaining <= 10) {
+      document.getElementById('gameTimer').style.color = '#e74c3c';
+    } else if (remaining <= 60) {
+      document.getElementById('gameTimer').style.color = '#fdcb6e';
+    }
+  }, 1000);
+}
+
+// ===== 결과 =====
+function showResults() {
+  clearInterval(timerInterval);
+  if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+
+  var scores = gameData.scores || { red: 0, blue: 0 };
+  if (gameData.type === 'territory') {
+    var grid = gameData.grid || {};
+    scores = { red: 0, blue: 0 };
+    Object.keys(grid).forEach(function(k) {
+      if (grid[k].team === 'red') scores.red++;
+      else scores.blue++;
+    });
+  }
+
+  var winner = scores.red > scores.blue ? 'red' : scores.blue > scores.red ? 'blue' : 'draw';
+  var me = (gameData.players || {})[myPlayerId];
+  var myTeam = me ? me.team : '';
+
+  if (winner === 'draw') {
+    document.getElementById('resultEmoji').textContent = '🤝';
+    document.getElementById('resultTitle').textContent = '무승부!';
+  } else if (winner === myTeam) {
+    document.getElementById('resultEmoji').textContent = '🏆';
+    document.getElementById('resultTitle').textContent = '승리!';
+    document.getElementById('resultTitle').style.color = winner === 'red' ? '#e74c3c' : '#3498db';
+  } else {
+    document.getElementById('resultEmoji').textContent = '😢';
+    document.getElementById('resultTitle').textContent = '패배...';
+  }
+
+  document.getElementById('resultScore').textContent = '🔴 ' + scores.red + '  vs  🔵 ' + scores.blue;
+
+  var players = gameData.players || {};
+  var eliminated = Object.keys(players).filter(function(id) { return players[id].eliminated; });
+  if (eliminated.length) {
+    var detail = '💀 탈락: ' + eliminated.map(function(id) { return players[id].name; }).join(', ');
+    document.getElementById('resultDetail').textContent = detail;
+  }
+
+  document.getElementById('resultOverlay').style.display = 'flex';
+  document.getElementById('eliminatedOverlay').style.display = 'none';
+}
+
+function leaveGame() {
+  if (gameRef) gameRef.off();
+  gameId = null;
+  gameData = null;
+  gameMap = null;
+  zoneMap = null;
+  gameMarkers = {};
+  gridOverlays = {};
+  flagMarkers = {};
+  document.getElementById('resultOverlay').style.display = 'none';
+  showScreen('join');
+}
+
+// ===== 토스트 =====
+function showToast(msg) {
+  var old = document.querySelector('.game-toast');
+  if (old) old.remove();
+  var el = document.createElement('div');
+  el.className = 'game-toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(function() { el.remove(); }, 3000);
+}
+</script>
+</body>
+</html>
