@@ -237,6 +237,32 @@
     <div id="childPinsList"></div>
   </div>
 
+  <!-- 보물찾기 -->
+  <div class="card" id="treasureCard" style="display:none;">
+    <div class="flex-between">
+      <h2>💎 보물찾기</h2>
+      <button class="success small" onclick="showAddTreasure()">+ 보물 숨기기</button>
+    </div>
+    <div id="treasureForm" style="display:none;margin-top:8px;padding:10px;background:#fffbe6;border-radius:6px;border:1px dashed #f39c12;">
+      <div id="trLocLabel" style="font-size:13px;color:#f39c12;font-weight:600;text-align:center;margin-bottom:6px;">📍 보물 숨길 위치를 선택하세요</div>
+      <div style="display:flex;gap:4px;margin-bottom:6px;">
+        <input id="trAddr" type="text" placeholder="주소·장소 검색" style="flex:1;font-size:13px;padding:8px;">
+        <button class="small" onclick="searchTreasureAddr()">검색</button>
+      </div>
+      <div id="trAddrResults" style="max-height:80px;overflow-y:auto;margin-bottom:6px;"></div>
+      <div style="font-size:11px;color:#aaa;margin-bottom:6px;text-align:center;">지도를 눌러서 위치 선택도 가능</div>
+      <input id="trHint" type="text" placeholder="힌트 (예: 큰 나무 근처!)" style="font-size:13px;padding:8px;">
+      <input id="trMsg" type="text" placeholder="발견 시 메시지 (선택)" style="font-size:13px;padding:8px;margin-top:4px;">
+      <input type="hidden" id="trLat">
+      <input type="hidden" id="trLng">
+      <div style="margin-top:8px;display:flex;gap:4px;">
+        <button class="success small" onclick="saveTreasure()" style="flex:1;">💎 보물 숨기기</button>
+        <button class="gray small" onclick="hideTreasureForm()">취소</button>
+      </div>
+    </div>
+    <div id="treasureList"></div>
+  </div>
+
   <!-- 부모 핑 -->
   <div class="card" id="parentPingCard" style="display:none;">
     <div class="flex-between">
@@ -430,6 +456,7 @@ function autoLogin(id, pw) {
     document.getElementById('logoutBtn').style.display = '';
     document.getElementById('parentShareCard').style.display = '';
     document.getElementById('parentPingCard').style.display = '';
+    document.getElementById('treasureCard').style.display = '';
     document.getElementById('contactsCard').style.display = '';
     document.getElementById('chatFab').style.display = 'flex';
     document.getElementById('mySettingsCard').style.display = '';
@@ -447,6 +474,7 @@ function autoLogin(id, pw) {
     document.getElementById('childMgmtCard').style.display = '';
     document.getElementById('parentShareCard').style.display = '';
     document.getElementById('parentPingCard').style.display = '';
+    document.getElementById('treasureCard').style.display = '';
     document.getElementById('contactsCard').style.display = '';
     document.getElementById('chatFab').style.display = 'flex';
     document.getElementById('mySettingsCard').style.display = '';
@@ -494,6 +522,12 @@ function initMap() {
       document.getElementById('ppingLocLabel').textContent = '📍 지도에서 선택한 위치';
       showPinTempMarker(lat, lng);
     }
+    if (document.getElementById('treasureForm').style.display !== 'none') {
+      document.getElementById('trLat').value = lat.toFixed(6);
+      document.getElementById('trLng').value = lng.toFixed(6);
+      document.getElementById('trLocLabel').textContent = '📍 지도에서 선택한 위치';
+      showPinTempMarker(lat, lng);
+    }
   });
 
   if (!geocoder) geocoder = new kakao.maps.services.Geocoder();
@@ -513,6 +547,7 @@ function render() {
   renderChildPins();
   renderParentPins();
   renderParentLocations();
+  renderTreasures();
   updateList();
   document.getElementById('lastRefresh').textContent = new Date().toLocaleTimeString('ko-KR');
 }
@@ -1049,6 +1084,7 @@ function doLogin() {
     document.getElementById('logoutBtn').style.display = '';
     document.getElementById('parentShareCard').style.display = '';
     document.getElementById('parentPingCard').style.display = '';
+    document.getElementById('treasureCard').style.display = '';
     document.getElementById('contactsCard').style.display = '';
     document.getElementById('chatFab').style.display = 'flex';
     document.getElementById('mySettingsCard').style.display = '';
@@ -1069,6 +1105,7 @@ function doLogin() {
     document.getElementById('childMgmtCard').style.display = '';
     document.getElementById('parentShareCard').style.display = '';
     document.getElementById('parentPingCard').style.display = '';
+    document.getElementById('treasureCard').style.display = '';
     document.getElementById('contactsCard').style.display = '';
     document.getElementById('chatFab').style.display = 'flex';
     document.getElementById('mySettingsCard').style.display = '';
@@ -1652,6 +1689,125 @@ function sendChat() {
     text: text, timestamp: Date.now()
   });
   input.value = '';
+}
+
+// ──── 보물찾기 ────
+var treasureMarkers = [];
+
+function showAddTreasure() {
+  document.getElementById('trHint').value = '';
+  document.getElementById('trMsg').value = '';
+  document.getElementById('trAddr').value = '';
+  document.getElementById('trAddrResults').innerHTML = '';
+  document.getElementById('trLat').value = '';
+  document.getElementById('trLng').value = '';
+  document.getElementById('trLocLabel').textContent = '📍 보물 숨길 위치를 선택하세요';
+  document.getElementById('treasureForm').style.display = '';
+}
+function hideTreasureForm() {
+  document.getElementById('treasureForm').style.display = 'none';
+  if (pinTempMarker) { pinTempMarker.setMap(null); pinTempMarker = null; }
+}
+function searchTreasureAddr() {
+  var addr = document.getElementById('trAddr').value.trim();
+  if (!addr) return;
+  if (!geocoder) geocoder = new kakao.maps.services.Geocoder();
+  geocoder.addressSearch(addr, function(result, status) {
+    if (status === kakao.maps.services.Status.OK && result.length) {
+      var html = '';
+      result.slice(0, 5).forEach(function(r) {
+        html += '<div onclick="selectTreasureAddr(' + r.y + ',' + r.x + ',\'' + r.address_name.replace(/'/g, "\\'") + '\')" '
+          + 'style="padding:6px 8px;cursor:pointer;font-size:12px;border-bottom:1px solid #eee;">'
+          + r.address_name + '</div>';
+      });
+      document.getElementById('trAddrResults').innerHTML = html;
+    } else {
+      var ps = new kakao.maps.services.Places();
+      ps.keywordSearch(addr, function(data, s2) {
+        if (s2 === kakao.maps.services.Status.OK && data.length) {
+          var html = '';
+          data.slice(0, 5).forEach(function(d) {
+            html += '<div onclick="selectTreasureAddr(' + d.y + ',' + d.x + ',\'' + d.place_name.replace(/'/g, "\\'") + '\')" '
+              + 'style="padding:6px 8px;cursor:pointer;font-size:12px;border-bottom:1px solid #eee;">'
+              + d.place_name + '</div>';
+          });
+          document.getElementById('trAddrResults').innerHTML = html;
+        } else {
+          document.getElementById('trAddrResults').innerHTML = '<div style="padding:6px;font-size:12px;color:#999;">결과 없음</div>';
+        }
+      });
+    }
+  });
+}
+function selectTreasureAddr(lat, lng, name) {
+  document.getElementById('trAddrResults').innerHTML = '';
+  document.getElementById('trLat').value = lat;
+  document.getElementById('trLng').value = lng;
+  document.getElementById('trLocLabel').textContent = '📍 ' + name;
+  showPinTempMarker(lat, lng);
+  map.setCenter(new kakao.maps.LatLng(lat, lng));
+  map.setLevel(3);
+}
+function saveTreasure() {
+  var lat = parseFloat(document.getElementById('trLat').value);
+  var lng = parseFloat(document.getElementById('trLng').value);
+  if (isNaN(lat) || isNaN(lng)) { alert('보물 숨길 위치를 선택하세요.'); return; }
+  var hint = document.getElementById('trHint').value.trim();
+  if (!hint) { alert('힌트를 입력하세요!'); return; }
+  var msg = document.getElementById('trMsg').value.trim();
+  fbDb.ref('/treasures/' + uid()).set({
+    lat: lat, lng: lng, hint: hint,
+    foundMsg: msg || '보물을 찾았어요! 🎉',
+    active: true, found: false, foundBy: null,
+    createdBy: currentParentId || 'admin',
+    timestamp: Date.now()
+  }).then(function() {
+    hideTreasureForm();
+    if (pinTempMarker) { pinTempMarker.setMap(null); pinTempMarker = null; }
+  });
+}
+function renderTreasures() {
+  treasureMarkers.forEach(function(m) { m.setMap(null); });
+  treasureMarkers = [];
+  var treasures = getTreasures();
+  var listHtml = '';
+  if (!treasures.length) {
+    document.getElementById('treasureList').innerHTML = '<div class="muted" style="padding:8px;text-align:center;font-size:12px;">숨긴 보물이 없습니다.</div>';
+    return;
+  }
+  treasures.forEach(function(t) {
+    var marker = new kakao.maps.Marker({
+      position: new kakao.maps.LatLng(t.lat, t.lng), map: map,
+      image: pinMarkerImage(t.found ? '✅' : '💎', t.found ? '#95a5a6' : '#f39c12'), zIndex: 5
+    });
+    var iw = new kakao.maps.InfoWindow({
+      content: '<div style="padding:8px;font-size:12px;min-width:120px;">'
+        + '<b>💎 ' + t.hint + '</b>'
+        + (t.found ? '<div style="color:#27ae60;font-weight:600;">✅ ' + (t.foundByName||'') + '이(가) 발견!</div>' : '<div style="color:#f39c12;">아직 못 찾음</div>')
+        + '<div class="muted">' + timeAgo(t.timestamp) + '</div></div>',
+      removable: true
+    });
+    kakao.maps.event.addListener(marker, 'click', (function(m, i) {
+      return function() { toggleInfoWindow(i, m, map); };
+    })(marker, iw));
+    treasureMarkers.push(marker);
+
+    listHtml += '<div style="display:flex;align-items:center;gap:8px;padding:8px;background:' + (t.found ? '#f0f0f0' : '#fffbe6') + ';border-radius:6px;margin-top:6px;font-size:13px;">'
+      + '<span style="font-size:20px;">' + (t.found ? '✅' : '💎') + '</span>'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div style="font-weight:600;">' + t.hint + '</div>'
+      + (t.found ? '<div style="font-size:11px;color:#27ae60;">' + (t.foundByName||'') + ' 발견! · ' + timeAgo(t.foundAt || t.timestamp) + '</div>'
+        : '<div style="font-size:11px;color:#f39c12;">숨김 · ' + timeAgo(t.timestamp) + '</div>')
+      + '</div>'
+      + '<button onclick="focusPoint(' + t.lat + ',' + t.lng + ')" style="background:#3498db;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">보기</button>'
+      + '<button onclick="deleteTreasure(\'' + t.id + '\')" style="background:#e74c3c;color:#fff;border:none;padding:4px 6px;border-radius:4px;font-size:11px;cursor:pointer;">삭제</button>'
+      + '</div>';
+  });
+  document.getElementById('treasureList').innerHTML = listHtml;
+}
+function deleteTreasure(id) {
+  if (!confirm('이 보물을 삭제할까요?')) return;
+  fbDb.ref('/treasures/' + id).remove();
 }
 
 window.addEventListener('beforeunload', function() {

@@ -40,6 +40,20 @@
       0%,100% { box-shadow:0 0 0 0 rgba(231,76,60,0.4); }
       50% { box-shadow:0 0 0 8px rgba(231,76,60,0); }
     }
+    .treasure-item {
+      padding:10px;border-radius:10px;margin-bottom:8px;position:relative;overflow:hidden;
+    }
+    .treasure-item .heat-bar {
+      position:absolute;bottom:0;left:0;height:3px;transition:width 0.5s,background 0.5s;
+    }
+    .treasure-found {
+      text-align:center;padding:16px;animation:treasure-pop 0.5s ease-out;
+    }
+    @keyframes treasure-pop {
+      0% { transform:scale(0.5);opacity:0; }
+      50% { transform:scale(1.1); }
+      100% { transform:scale(1);opacity:1; }
+    }
     .connected-banner {
       background:linear-gradient(135deg,#27ae60,#2ecc71);
       color:#fff;border-radius:16px;padding:20px;text-align:center;
@@ -149,6 +163,12 @@
       <button onclick="cancelChildPin()" style="width:100%;margin-top:4px;padding:8px;background:#95a5a6;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;">취소</button>
     </div>
     <div class="my-pins-list" id="myPinsList"></div>
+  </div>
+
+  <!-- 보물찾기 -->
+  <div class="card" id="treasureHuntCard" style="display:none;">
+    <h2>💎 보물찾기</h2>
+    <div id="treasureHuntList"></div>
   </div>
 
   <!-- 가족 위치 -->
@@ -287,6 +307,7 @@ function startTracking(child) {
   startGPS(child);
   renderMyPins();
   renderFamilyList();
+  renderTreasureHunt();
 }
 
 function startGPS(child) {
@@ -409,7 +430,7 @@ function startGPS(child) {
 // ──── 거점 표시 ────
 window.onDataChanged = function() {
   if (map && childId) renderPinsOnMap();
-  if (childId) { renderMyPins(); renderFamilyList(); }
+  if (childId) { renderMyPins(); renderFamilyList(); renderTreasureHunt(); }
 };
 
 function renderPinsOnMap() {
@@ -676,6 +697,100 @@ function renderMyPins() {
   list.innerHTML = html;
 }
 function removeChildPin(pinId) { fbDb.ref('/childPins/' + pinId).remove(); }
+
+// ──── 보물찾기 ────
+var foundTreasures = {};
+
+function renderTreasureHunt() {
+  var treasures = getTreasures().filter(function(t) { return t.active; });
+  var card = document.getElementById('treasureHuntCard');
+  if (!treasures.length) { card.style.display = 'none'; return; }
+  card.style.display = '';
+
+  var html = '';
+  treasures.forEach(function(t) {
+    if (t.found) {
+      html += '<div class="treasure-item" style="background:#d4edda;">'
+        + '<div class="treasure-found">'
+        + '<div style="font-size:36px;">🎉</div>'
+        + '<div style="font-size:15px;font-weight:700;color:#155724;margin-top:4px;">' + (t.foundMsg || '보물 발견!') + '</div>'
+        + '<div style="font-size:12px;color:#155724;opacity:0.7;margin-top:2px;">' + (t.foundByName || '') + ' · ' + timeAgo(t.foundAt || t.timestamp) + '</div>'
+        + '</div></div>';
+      return;
+    }
+
+    var d = null;
+    var heatText = '📍 위치를 켜면 거리가 보여요';
+    var heatColor = '#ddd';
+    var heatPct = 0;
+    var bgColor = '#fffbe6';
+
+    if (currentLat && currentLng) {
+      d = distance(currentLat, currentLng, t.lat, t.lng);
+
+      if (d <= 20) {
+        claimTreasure(t);
+        return;
+      } else if (d < 50) {
+        heatText = '🔥🔥🔥 엄청 뜨거워! 거의 다 왔어!';
+        heatColor = '#e74c3c'; heatPct = 95; bgColor = '#fde8e8';
+      } else if (d < 100) {
+        heatText = '🔥🔥 뜨거워! 아주 가까워!';
+        heatColor = '#e67e22'; heatPct = 80; bgColor = '#fef3e2';
+      } else if (d < 200) {
+        heatText = '🔥 따뜻해! 가까워지고 있어!';
+        heatColor = '#f39c12'; heatPct = 60; bgColor = '#fffbe6';
+      } else if (d < 500) {
+        heatText = '😐 미지근~ 좀 더 가봐!';
+        heatColor = '#f1c40f'; heatPct = 40; bgColor = '#fffef0';
+      } else if (d < 1000) {
+        heatText = '❄️ 차가워... 방향을 바꿔볼까?';
+        heatColor = '#3498db'; heatPct = 20; bgColor = '#eaf4fd';
+      } else {
+        heatText = '🥶 얼음! 아직 멀어~';
+        heatColor = '#2c3e50'; heatPct = 5; bgColor = '#ecf0f1';
+      }
+    }
+
+    html += '<div class="treasure-item" style="background:' + bgColor + ';">'
+      + '<div style="display:flex;align-items:center;gap:8px;">'
+      + '<span style="font-size:28px;">💎</span>'
+      + '<div style="flex:1;">'
+      + '<div style="font-size:14px;font-weight:700;color:#2c3e50;">힌트: ' + t.hint + '</div>'
+      + '<div style="font-size:13px;margin-top:4px;">' + heatText + '</div>';
+    if (d !== null) {
+      var distText = d < 1000 ? Math.round(d) + 'm' : (d/1000).toFixed(1) + 'km';
+      html += '<div style="font-size:11px;color:#888;margin-top:2px;">남은 거리: 약 ' + distText + '</div>';
+    }
+    html += '</div></div>'
+      + '<div class="heat-bar" style="width:' + heatPct + '%;background:' + heatColor + ';"></div>'
+      + '</div>';
+  });
+
+  document.getElementById('treasureHuntList').innerHTML = html;
+}
+
+function claimTreasure(t) {
+  if (foundTreasures[t.id]) return;
+  foundTreasures[t.id] = true;
+  var name = matchedChild ? matchedChild.name : '?';
+  fbDb.ref('/treasures/' + t.id).update({
+    found: true,
+    foundBy: childId,
+    foundByName: name,
+    foundAt: Date.now()
+  });
+  if ('vibrate' in navigator) navigator.vibrate([200, 100, 200, 100, 400]);
+  var alarmCtx = new (window.AudioContext || window.webkitAudioContext)();
+  var osc = alarmCtx.createOscillator();
+  var gain = alarmCtx.createGain();
+  osc.type = 'sine'; osc.frequency.value = 800;
+  osc.connect(gain); gain.connect(alarmCtx.destination);
+  gain.gain.setValueAtTime(0.5, alarmCtx.currentTime);
+  osc.frequency.linearRampToValueAtTime(1200, alarmCtx.currentTime + 0.3);
+  gain.gain.exponentialRampToValueAtTime(0.01, alarmCtx.currentTime + 0.5);
+  osc.start(); osc.stop(alarmCtx.currentTime + 0.5);
+}
 
 // ──── 이동거리 ────
 function updateDistanceBar() {

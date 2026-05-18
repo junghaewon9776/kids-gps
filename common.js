@@ -99,6 +99,12 @@ function getParentLocations() {
   return _cache.parentLocations || {};
 }
 
+function getTreasures() {
+  var t = _cache.treasures || {};
+  return Object.keys(t).map(function(k) { return Object.assign({ id: k }, t[k]); })
+    .sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+}
+
 function getConfig() {
   return _cache.config || Object.assign({}, defaultConfig);
 }
