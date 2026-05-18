@@ -89,6 +89,24 @@
       <div id="statusArea" style="margin-top:12px;">
         <div style="font-size:14px;opacity:0.9;">GPS 연결 중...</div>
       </div>
+      <div id="distanceBar" style="display:none;margin-top:12px;background:rgba(255,255,255,0.15);border-radius:10px;padding:10px 14px;">
+        <div style="display:flex;justify-content:space-around;text-align:center;">
+          <div>
+            <div style="font-size:20px;font-weight:800;" id="distText">0m</div>
+            <div style="font-size:10px;opacity:0.7;">이동거리</div>
+          </div>
+          <div style="width:1px;background:rgba(255,255,255,0.2);"></div>
+          <div>
+            <div style="font-size:20px;font-weight:800;" id="stepsText">0</div>
+            <div style="font-size:10px;opacity:0.7;">걸음 수(추정)</div>
+          </div>
+          <div style="width:1px;background:rgba(255,255,255,0.2);"></div>
+          <div>
+            <div style="font-size:20px;font-weight:800;" id="timeText">0분</div>
+            <div style="font-size:10px;opacity:0.7;">활동시간</div>
+          </div>
+        </div>
+      </div>
       <span class="disconnect-link" onclick="disconnect()">연결 해제</span>
     </div>
   </div>
@@ -204,6 +222,8 @@ var pinTempMarker = null;
 var childGeocoder = null;
 var followMode = true;
 var arrowMarkers = [];
+var totalDistance = 0;
+var startTime = null;
 
 initFirebaseSync();
 
@@ -262,6 +282,7 @@ function startTracking(child) {
   document.getElementById('childPinCard').style.display = '';
   document.getElementById('sosCard').style.display = '';
   document.getElementById('familyLocCard').style.display = '';
+  document.getElementById('distanceBar').style.display = '';
 
   startGPS(child);
   renderMyPins();
@@ -326,10 +347,15 @@ function startGPS(child) {
         }
         if (prevLat !== null && prevLng !== null) {
           var d = distance(prevLat, prevLng, lat, lng);
+          if (d > 3 && d < 10000) {
+            totalDistance += d;
+            updateDistanceBar();
+          }
           if (d > 5) {
             addArrowMarker(prevLat, prevLng, lat, lng, child.color || '#3498db');
           }
         }
+        if (!startTime) startTime = Date.now();
         prevLat = lat;
         prevLng = lng;
       }
@@ -650,6 +676,23 @@ function renderMyPins() {
   list.innerHTML = html;
 }
 function removeChildPin(pinId) { fbDb.ref('/childPins/' + pinId).remove(); }
+
+// ──── 이동거리 ────
+function updateDistanceBar() {
+  var m = totalDistance;
+  if (m < 1000) document.getElementById('distText').textContent = Math.round(m) + 'm';
+  else document.getElementById('distText').textContent = (m / 1000).toFixed(1) + 'km';
+
+  var steps = Math.round(m / 0.65);
+  if (steps < 1000) document.getElementById('stepsText').textContent = steps;
+  else document.getElementById('stepsText').textContent = (steps / 1000).toFixed(1) + 'k';
+
+  if (startTime) {
+    var min = Math.floor((Date.now() - startTime) / 60000);
+    if (min < 60) document.getElementById('timeText').textContent = min + '분';
+    else document.getElementById('timeText').textContent = Math.floor(min / 60) + '시간 ' + (min % 60) + '분';
+  }
+}
 
 // ──── 가족 위치 리스트 ────
 function renderFamilyList() {
