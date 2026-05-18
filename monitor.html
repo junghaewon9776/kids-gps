@@ -430,7 +430,7 @@ function autoLogin(id, pw) {
     document.getElementById('parentShareCard').style.display = '';
     document.getElementById('parentPingCard').style.display = '';
     document.getElementById('contactsCard').style.display = '';
-    document.getElementById('chatFab').style.display = '';
+    document.getElementById('chatFab').style.display = 'flex';
     document.getElementById('mySettingsCard').style.display = '';
     addParentFilter();
     kakao.maps.load(function() { initMap(); initChat(); });
@@ -447,7 +447,7 @@ function autoLogin(id, pw) {
     document.getElementById('parentShareCard').style.display = '';
     document.getElementById('parentPingCard').style.display = '';
     document.getElementById('contactsCard').style.display = '';
-    document.getElementById('chatFab').style.display = '';
+    document.getElementById('chatFab').style.display = 'flex';
     document.getElementById('mySettingsCard').style.display = '';
     kakao.maps.load(function() { initMap(); renderMyChildList(); initChat(); checkWeakPw(pw); });
     return;
@@ -1049,7 +1049,7 @@ function doLogin() {
     document.getElementById('parentShareCard').style.display = '';
     document.getElementById('parentPingCard').style.display = '';
     document.getElementById('contactsCard').style.display = '';
-    document.getElementById('chatFab').style.display = '';
+    document.getElementById('chatFab').style.display = 'flex';
     document.getElementById('mySettingsCard').style.display = '';
     addParentFilter();
     kakao.maps.load(function() { initMap(); initChat(); });
@@ -1069,7 +1069,7 @@ function doLogin() {
     document.getElementById('parentShareCard').style.display = '';
     document.getElementById('parentPingCard').style.display = '';
     document.getElementById('contactsCard').style.display = '';
-    document.getElementById('chatFab').style.display = '';
+    document.getElementById('chatFab').style.display = 'flex';
     document.getElementById('mySettingsCard').style.display = '';
     kakao.maps.load(function() { initMap(); renderMyChildList(); initChat(); checkWeakPw(pw); });
     return;
