@@ -139,12 +139,6 @@
     <div id="familyLocList"></div>
   </div>
 
-  <!-- SOS -->
-  <div class="card" id="sosCard" style="display:none;text-align:center;">
-    <button class="sos-btn" onclick="sendSOS()">🆘 긴급 SOS</button>
-    <p class="muted" style="margin-top:6px;">부모님에게 긴급 알림을 보내요</p>
-  </div>
-
   <div class="card" style="display:none;" id="keepOpenCard">
     <p style="text-align:center;font-size:13px;color:#e67e22;line-height:1.6;">
       <b>이 화면을 열어두세요!</b><br>
@@ -165,6 +159,12 @@
       <div style="font-size:18px;font-weight:700;color:#e74c3c;margin:8px 0;">부모님이 찾고 있어요!</div>
       <button onclick="stopAlarm()" style="margin-top:8px;padding:12px 32px;background:#e74c3c;color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;">알람 끄기</button>
     </div>
+  </div>
+
+  <!-- SOS (항상 맨 밑) -->
+  <div class="card" id="sosCard" style="display:none;text-align:center;">
+    <button class="sos-btn" onclick="sendSOS()">🆘 긴급 SOS</button>
+    <p class="muted" style="margin-top:6px;">부모님에게 긴급 알림을 보내요</p>
   </div>
 </div>
 
