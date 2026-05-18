@@ -48,6 +48,17 @@
       display:inline-block;margin-top:12px;font-size:11px;color:rgba(255,255,255,0.6);
       text-decoration:underline;cursor:pointer;
     }
+    .map-type-bar {
+      position:absolute;top:10px;left:10px;z-index:5;
+      display:flex;gap:0;background:rgba(255,255,255,0.95);border-radius:6px;
+      box-shadow:0 1px 4px rgba(0,0,0,0.15);overflow:hidden;
+    }
+    .map-type-btn {
+      padding:6px 10px;border:none;background:none;font-size:11px;
+      font-weight:600;color:#555;cursor:pointer;border-right:1px solid #e0e0e0;
+    }
+    .map-type-btn:last-child { border-right:none; }
+    .map-type-btn.active { background:#3498db;color:#fff; }
   </style>
 </head>
 <body>
@@ -85,6 +96,18 @@
   <div class="card" id="mapCard" style="display:none;">
     <div class="map-wrap">
       <div id="map" class="map" style="height:280px;"></div>
+      <div class="map-type-bar">
+        <button class="map-type-btn active" onclick="setMapType('normal')">지도</button>
+        <button class="map-type-btn" onclick="setMapType('skyview')">위성</button>
+        <button class="map-type-btn" onclick="setMapType('hybrid')">혼합</button>
+      </div>
+      <div class="map-ctrl map-ctrl-right">
+        <button class="map-btn" onclick="zoomIn()">+</button>
+        <button class="map-btn" onclick="zoomOut()">−</button>
+      </div>
+      <div class="map-ctrl map-ctrl-bottom">
+        <button class="map-btn" id="followBtn" style="width:auto;padding:0 12px;font-size:13px;font-weight:600;" onclick="toggleFollow()">🎯 따라가기</button>
+      </div>
     </div>
   </div>
 
@@ -167,10 +190,13 @@ var watchId = null;
 var lastWriteTime = 0;
 var gpsCount = 0;
 var currentLat = null, currentLng = null;
+var prevLat = null, prevLng = null;
 var selectedPinData = null;
 var pinLat = null, pinLng = null;
 var pinTempMarker = null;
 var childGeocoder = null;
+var followMode = true;
+var arrowMarkers = [];
 
 initFirebaseSync();
 
@@ -279,7 +305,7 @@ function startGPS(child) {
 
       if (map) {
         var latlng = new kakao.maps.LatLng(lat, lng);
-        map.setCenter(latlng);
+        if (followMode) map.setCenter(latlng);
         if (!myMarker) {
           myMarker = new kakao.maps.Marker({
             position: latlng, map: map,
@@ -289,6 +315,14 @@ function startGPS(child) {
         } else {
           myMarker.setPosition(latlng);
         }
+        if (prevLat !== null && prevLng !== null) {
+          var d = distance(prevLat, prevLng, lat, lng);
+          if (d > 5) {
+            addArrowMarker(prevLat, prevLng, lat, lng, child.color || '#3498db');
+          }
+        }
+        prevLat = lat;
+        prevLng = lng;
       }
 
       var now = Date.now();
@@ -360,17 +394,19 @@ function renderPinsOnMap() {
   });
 
   getChildPins().forEach(function(cp) {
-    if (cp.childId === childId) return;
-    var c = getChildren().find(function(x) { return x.id === cp.childId; });
+    var isMine = cp.childId === childId;
+    var c = isMine ? matchedChild : getChildren().find(function(x) { return x.id === cp.childId; });
     var emoji = c ? (c.emoji || '📍') : '📍';
+    var name = c ? c.name : '?';
+    var pinColor = isMine ? '#27ae60' : '#f39c12';
     var marker = new kakao.maps.Marker({
       position: new kakao.maps.LatLng(cp.lat, cp.lng),
-      map: map, image: pinMarkerImage(emoji, '#f39c12'), zIndex: 2
+      map: map, image: pinMarkerImage(emoji, pinColor), zIndex: isMine ? 5 : 2
     });
     var iw = new kakao.maps.InfoWindow({
       content: '<div style="padding:8px;font-size:12px;min-width:120px;">'
-        + '<b>' + emoji + ' ' + (c ? c.name : '?') + '</b>'
-        + (cp.message ? '<div style="margin-top:4px;">' + cp.message + '</div>' : '')
+        + '<b>' + emoji + ' ' + (isMine ? '내 핑' : name) + '</b>'
+        + (cp.message ? '<div style="margin-top:4px;color:' + pinColor + ';font-weight:600;">' + cp.message + '</div>' : '')
         + '<div class="muted">' + timeAgo(cp.timestamp) + '</div></div>',
       removable: true
     });
@@ -527,6 +563,11 @@ function confirmChildPin() {
   pinLat = currentLat;
   pinLng = currentLng;
   document.getElementById('pinLocLabel').textContent = pinLat ? '📍 내 현재 위치' : '📍 위치를 선택하세요';
+  var btn = document.querySelector('.child-pin-btn');
+  var origText = btn.textContent;
+  btn.textContent = '✅ 핑 보냈어!';
+  btn.style.background = '#27ae60';
+  setTimeout(function() { btn.textContent = origText; btn.style.background = ''; }, 2000);
 }
 function cancelChildPin() {
   document.getElementById('childPinMsg').style.display = 'none';
@@ -550,6 +591,61 @@ function renderMyPins() {
   list.innerHTML = html;
 }
 function removeChildPin(pinId) { fbDb.ref('/childPins/' + pinId).remove(); }
+
+// ──── 지도 타입 / 줌 / 따라가기 ────
+function setMapType(type) {
+  if (!map) return;
+  document.querySelectorAll('.map-type-btn').forEach(function(b) { b.classList.remove('active'); });
+  if (type === 'normal') {
+    map.setMapTypeId(kakao.maps.MapTypeId.ROADMAP);
+    document.querySelectorAll('.map-type-btn')[0].classList.add('active');
+  } else if (type === 'skyview') {
+    map.setMapTypeId(kakao.maps.MapTypeId.SKYVIEW);
+    document.querySelectorAll('.map-type-btn')[1].classList.add('active');
+  } else {
+    map.setMapTypeId(kakao.maps.MapTypeId.HYBRID);
+    document.querySelectorAll('.map-type-btn')[2].classList.add('active');
+  }
+}
+function zoomIn() { if (map) map.setLevel(Math.max(1, map.getLevel() - 1)); }
+function zoomOut() { if (map) map.setLevel(Math.min(14, map.getLevel() + 1)); }
+
+function toggleFollow() {
+  followMode = !followMode;
+  var btn = document.getElementById('followBtn');
+  btn.textContent = followMode ? '🎯 ON' : '🎯 따라가기';
+  btn.classList.toggle('gray', !followMode);
+  if (followMode && currentLat && map) {
+    map.setCenter(new kakao.maps.LatLng(currentLat, currentLng));
+    map.setLevel(3);
+  }
+}
+
+function addArrowMarker(lat1, lng1, lat2, lng2, color) {
+  var midLat = (lat1 + lat2) / 2, midLng = (lng1 + lng2) / 2;
+  var dLng = (lng2 - lng1) * Math.PI / 180;
+  var lat1r = lat1 * Math.PI / 180, lat2r = lat2 * Math.PI / 180;
+  var y = Math.sin(dLng) * Math.cos(lat2r);
+  var x = Math.cos(lat1r) * Math.sin(lat2r) - Math.sin(lat1r) * Math.cos(lat2r) * Math.cos(dLng);
+  var bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14">'
+    + '<g transform="rotate(' + bearing + ' 7 7)">'
+    + '<path d="M7 1 L13 12 L7 9 L1 12 Z" fill="' + color + '" stroke="white" stroke-width="1"/>'
+    + '</g></svg>';
+  var marker = new kakao.maps.Marker({
+    position: new kakao.maps.LatLng(midLat, midLng), map: map,
+    image: new kakao.maps.MarkerImage(
+      'data:image/svg+xml;utf8,' + encodeURIComponent(svg),
+      new kakao.maps.Size(14, 14), { offset: new kakao.maps.Point(7, 7) }
+    ),
+    clickable: false, zIndex: 1
+  });
+  arrowMarkers.push(marker);
+  if (arrowMarkers.length > 50) {
+    arrowMarkers[0].setMap(null);
+    arrowMarkers.shift();
+  }
+}
 
 // ──── SOS ────
 function sendSOS() {
