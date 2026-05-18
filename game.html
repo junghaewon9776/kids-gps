@@ -7,7 +7,6 @@
   <title>GPS 게임</title>
   <link rel="stylesheet" href="style.css">
   <style>
-    /* 게임 공통 */
     .game-header { background:linear-gradient(135deg,#6c5ce7,#a29bfe); }
     .game-header h1 { font-size:15px; }
     .game-status-bar {
@@ -23,7 +22,6 @@
     .team-red { background:#e74c3c; }
     .team-blue { background:#3498db; }
 
-    /* 로비 */
     .lobby-card {
       background:#fff; border-radius:16px; padding:24px; margin:16px 12px;
       box-shadow:0 4px 20px rgba(0,0,0,0.1); text-align:center;
@@ -53,7 +51,6 @@
     .ready-btn.not-ready { background:#dfe6e9; color:#636e72; }
     .ready-btn.is-ready { background:#00b894; color:#fff; }
 
-    /* 호스트 설정 */
     .host-panel {
       background:#fff; border-radius:12px; padding:16px; margin:8px 12px;
       box-shadow:0 2px 10px rgba(0,0,0,0.08);
@@ -68,7 +65,6 @@
     .zone-btn.safe-active { border-color:#27ae60; background:#d4edda; color:#27ae60; }
     .zone-btn.danger-active { border-color:#e74c3c; background:#ffeaea; color:#e74c3c; }
 
-    /* 게임 중 UI */
     .game-hud {
       position:fixed; bottom:0; left:0; right:0; z-index:50;
       background:rgba(45,52,54,0.95); color:#fff; padding:12px;
@@ -82,17 +78,6 @@
     .score-num { font-size:32px; font-weight:900; }
     .score-vs { font-size:20px; font-weight:700; opacity:0.5; }
 
-    /* 땅따먹기 격자 */
-    .territory-legend {
-      display:flex; gap:12px; justify-content:center; margin:8px 0;
-      font-size:11px; color:#fff;
-    }
-    .legend-dot {
-      display:inline-block; width:12px; height:12px; border-radius:2px;
-      margin-right:4px; vertical-align:middle;
-    }
-
-    /* 결과 화면 */
     .result-overlay {
       position:fixed; inset:0; background:rgba(0,0,0,0.85);
       z-index:9999; display:flex; align-items:center; justify-content:center;
@@ -105,7 +90,6 @@
     .result-card .winner-text { font-size:24px; font-weight:800; margin:12px 0; }
     .result-card .final-score { font-size:16px; color:#636e72; }
 
-    /* 알림 토스트 */
     .game-toast {
       position:fixed; top:80px; left:50%; transform:translateX(-50%);
       background:#2d3436; color:#fff; padding:12px 20px; border-radius:24px;
@@ -115,7 +99,6 @@
     @keyframes toastIn { from { opacity:0; transform:translateX(-50%) translateY(-20px); } }
     @keyframes toastOut { to { opacity:0; transform:translateX(-50%) translateY(-20px); } }
 
-    /* 탈락 오버레이 */
     .eliminated-overlay {
       position:fixed; inset:0; background:rgba(231,76,60,0.9);
       z-index:9998; display:flex; align-items:center; justify-content:center;
@@ -125,7 +108,6 @@
     .eliminated-overlay .elim-text { font-size:24px; font-weight:800; margin:12px 0; }
     .eliminated-overlay .elim-reason { font-size:14px; opacity:0.8; }
 
-    /* 입장 화면 */
     .join-screen {
       display:flex; flex-direction:column; align-items:center;
       justify-content:center; min-height:80vh; padding:20px;
@@ -153,6 +135,45 @@
       50% { transform:scale(1); opacity:1; }
       100% { transform:scale(0.8); opacity:0; }
     }
+
+    /* 경고 배지 */
+    .warn-badge {
+      display:inline-block; background:#fdcb6e; color:#2d3436;
+      padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700;
+      margin-left:6px;
+    }
+    .warn-bar {
+      display:flex; align-items:center; justify-content:center; gap:8px;
+      padding:6px; font-size:12px; color:#fdcb6e;
+    }
+
+    /* 깃발 액션 버튼 */
+    .flag-action-area {
+      position:fixed; bottom:140px; left:50%; transform:translateX(-50%);
+      z-index:60; display:flex; flex-direction:column; align-items:center; gap:8px;
+    }
+    .flag-action-btn {
+      padding:16px 32px; border-radius:16px; border:none;
+      font-size:18px; font-weight:800; cursor:pointer;
+      box-shadow:0 4px 16px rgba(0,0,0,0.3);
+      animation:flagBtnPulse 1.5s infinite;
+    }
+    .flag-grab-btn {
+      background:linear-gradient(135deg,#00b894,#00cec9); color:#fff;
+    }
+    .flag-drop-btn {
+      background:linear-gradient(135deg,#e74c3c,#fd79a8); color:#fff;
+    }
+    .flag-score-btn {
+      background:linear-gradient(135deg,#fdcb6e,#f39c12); color:#2d3436;
+    }
+    @keyframes flagBtnPulse {
+      0%,100% { box-shadow:0 4px 16px rgba(0,0,0,0.3); }
+      50% { box-shadow:0 4px 24px rgba(0,0,0,0.5); transform:translateX(-50%) scale(1.03); }
+    }
+    .flag-action-btn { animation:none; }
+    .flag-proximity { font-size:12px; color:#fff; text-align:center;
+      background:rgba(0,0,0,0.6); padding:4px 12px; border-radius:12px; }
   </style>
 </head>
 <body>
@@ -161,7 +182,7 @@
   <nav><a href="index.html">홈</a></nav>
 </header>
 
-<!-- ===== 입장 화면 ===== -->
+<!-- 입장 -->
 <div id="joinScreen" class="join-screen">
   <div class="join-card">
     <div class="join-icon">🎮</div>
@@ -175,7 +196,6 @@
       입장하기
     </button>
     <div id="joinError" style="color:#e74c3c;font-size:12px;margin-top:8px;min-height:16px;"></div>
-
     <div style="margin-top:24px;padding-top:16px;border-top:1px solid #eee;">
       <p style="font-size:12px;color:#aaa;">또는</p>
       <button onclick="showCreateGame()" style="width:100%;padding:12px;margin-top:8px;
@@ -186,7 +206,7 @@
   </div>
 </div>
 
-<!-- ===== 게임 생성 (호스트) ===== -->
+<!-- 게임 생성 -->
 <div id="createScreen" style="display:none;">
   <div class="container">
     <div class="lobby-card">
@@ -194,9 +214,14 @@
       <h2 style="margin:12px 0;">새 게임 만들기</h2>
 
       <label style="text-align:left;">게임 종류</label>
-      <div style="display:flex;gap:8px;margin:8px 0 16px;">
-        <button class="zone-btn active" id="typeFlag" onclick="selectGameType('flag')">🚩 깃발뺏기</button>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 16px;">
+        <button class="zone-btn active" id="typeFlag" onclick="selectGameType('flag')">🚩 깃발뺏기 (클래식)</button>
+        <button class="zone-btn" id="typeFlagCollect" onclick="selectGameType('flagCollect')">🏴 깃발 모으기</button>
         <button class="zone-btn" id="typeTerritory" onclick="selectGameType('territory')">🗺️ 땅따먹기</button>
+      </div>
+
+      <div id="flagDesc" style="font-size:12px;color:#888;background:#f8f9fa;padding:8px;border-radius:6px;margin-bottom:12px;">
+        상대 진영의 깃발을 뺏어서 우리 진영으로 가져오면 득점!
       </div>
 
       <label style="text-align:left;">제한 시간</label>
@@ -208,33 +233,53 @@
         <option value="1800">30분</option>
       </select>
 
-      <label style="text-align:left;">땅따먹기 격자 크기</label>
-      <select id="gridSizeSel" style="margin-bottom:12px;">
-        <option value="10">10m (촘촘)</option>
-        <option value="20" selected>20m (보통)</option>
-        <option value="30">30m (넓음)</option>
-        <option value="50">50m (아주 넓음)</option>
+      <label style="text-align:left;">경고 횟수 (구역 이탈 시)</label>
+      <select id="maxWarnSel" style="margin-bottom:12px;">
+        <option value="0">즉시 탈락</option>
+        <option value="1">1회 경고 후 탈락</option>
+        <option value="2">2회 경고 후 탈락</option>
+        <option value="3" selected>3회 경고 후 탈락</option>
+        <option value="5">5회 경고 후 탈락</option>
       </select>
+
+      <div id="gridSizeRow">
+        <label style="text-align:left;">땅따먹기 격자 크기</label>
+        <select id="gridSizeSel" style="margin-bottom:12px;">
+          <option value="10">10m (촘촘)</option>
+          <option value="20" selected>20m (보통)</option>
+          <option value="30">30m (넓음)</option>
+          <option value="50">50m (아주 넓음)</option>
+        </select>
+      </div>
+
+      <div id="flagCountRow" style="display:none;">
+        <label style="text-align:left;">깃발 개수</label>
+        <select id="flagCountSel" style="margin-bottom:12px;">
+          <option value="3">3개</option>
+          <option value="5" selected>5개</option>
+          <option value="7">7개</option>
+          <option value="10">10개</option>
+        </select>
+      </div>
 
       <button onclick="createGame()" style="width:100%;padding:14px;margin-top:8px;
         border-radius:12px;font-size:16px;font-weight:700;background:#6c5ce7;border:none;color:#fff;">
         방 만들기
       </button>
       <button onclick="hideCreateGame()" style="width:100%;padding:10px;margin-top:8px;
-        border-radius:12px;font-size:13px;background:#dfe6e9;border:none;color:#636e72;">
-        취소
-      </button>
+        border-radius:12px;font-size:13px;background:#dfe6e9;border:none;color:#636e72;">취소</button>
     </div>
   </div>
 </div>
 
-<!-- ===== 로비 ===== -->
+<!-- 로비 -->
 <div id="lobbyScreen" style="display:none;">
   <div class="container">
     <div class="lobby-card">
       <div style="font-size:13px;color:#888;">방 코드</div>
       <div class="game-code" id="lobbyCode"></div>
-      <div id="lobbyGameType" style="font-size:14px;color:#6c5ce7;font-weight:600;margin-bottom:12px;"></div>
+      <div id="lobbyGameType" style="font-size:14px;color:#6c5ce7;font-weight:600;margin-bottom:4px;"></div>
+      <div id="lobbySettings" style="font-size:11px;color:#aaa;margin-bottom:12px;"></div>
 
       <div style="font-size:13px;color:#888;margin-bottom:8px;">참가자</div>
       <div class="player-grid" id="playerGrid"></div>
@@ -242,42 +287,32 @@
       <div id="hostControls" style="display:none;margin-top:16px;">
         <div style="display:flex;gap:8px;margin-bottom:8px;">
           <button onclick="shuffleTeams()" style="flex:1;padding:10px;border-radius:8px;
-            font-size:13px;font-weight:600;background:#fdcb6e;border:none;color:#2d3436;">
-            🔀 팀 섞기
-          </button>
+            font-size:13px;font-weight:600;background:#fdcb6e;border:none;color:#2d3436;">🔀 팀 섞기</button>
           <button onclick="balanceTeams()" style="flex:1;padding:10px;border-radius:8px;
-            font-size:13px;font-weight:600;background:#74b9ff;border:none;color:#fff;">
-            ⚖️ 팀 균등
-          </button>
+            font-size:13px;font-weight:600;background:#74b9ff;border:none;color:#fff;">⚖️ 팀 균등</button>
         </div>
-        <button onclick="goToZoneSetup()" id="zoneSetupBtn" style="width:100%;padding:14px;
+        <button onclick="goToZoneSetup()" style="width:100%;padding:14px;
           border-radius:12px;font-size:16px;font-weight:700;background:#6c5ce7;border:none;color:#fff;">
           📍 구역 설정하기
         </button>
       </div>
 
       <div id="playerControls" style="display:none;margin-top:16px;">
-        <button class="ready-btn not-ready" id="readyBtn" onclick="toggleReady()">
-          준비
-        </button>
+        <button class="ready-btn not-ready" id="readyBtn" onclick="toggleReady()">준비</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ===== 구역 설정 (호스트) ===== -->
+<!-- 구역 설정 -->
 <div id="zoneScreen" style="display:none;">
   <div class="container">
     <div class="host-panel">
       <h3>📍 구역 설정</h3>
       <p style="font-size:12px;color:#888;margin-bottom:8px;">지도를 터치해서 영역을 그려주세요</p>
-      <div class="zone-controls">
+      <div class="zone-controls" id="zoneControls">
         <button class="zone-btn safe-active" id="zoneSafeBtn" onclick="setDrawMode('safe')">✅ 안전 구역</button>
         <button class="zone-btn" id="zoneDangerBtn" onclick="setDrawMode('danger')">⛔ 위험 구역</button>
-        <span id="zoneFlagBtns" style="display:none;">
-          <button class="zone-btn" id="zoneFlagRedBtn" onclick="setDrawMode('flagRed')">🔴 빨강 깃발</button>
-          <button class="zone-btn" id="zoneFlagBlueBtn" onclick="setDrawMode('flagBlue')">🔵 파랑 깃발</button>
-        </span>
       </div>
       <div style="font-size:11px;color:#aaa;margin-bottom:8px;" id="drawHint">지도를 눌러 안전 구역 꼭짓점을 찍으세요 (최소 3개)</div>
     </div>
@@ -293,7 +328,7 @@
         <button onclick="clearCurrentZone()" style="flex:1;padding:10px;border-radius:8px;
           font-size:13px;background:#ffeaa7;border:none;color:#636e72;">🗑 현재 지우기</button>
       </div>
-      <button onclick="saveZonesAndStart()" id="startGameBtn" style="width:100%;padding:14px;margin-top:12px;
+      <button onclick="saveZonesAndStart()" style="width:100%;padding:14px;margin-top:12px;
         border-radius:12px;font-size:16px;font-weight:700;background:#00b894;border:none;color:#fff;">
         🎮 게임 시작!
       </button>
@@ -305,12 +340,13 @@
   </div>
 </div>
 
-<!-- ===== 게임 진행 ===== -->
+<!-- 게임 진행 -->
 <div id="gameScreen" style="display:none;">
   <div class="game-status-bar">
     <div>
       <span id="gameTypeLabel"></span>
       <span class="team-badge" id="myTeamBadge"></span>
+      <span class="warn-badge" id="warnBadge" style="display:none;">⚠️ 0/3</span>
     </div>
     <div class="game-timer" id="gameTimer">10:00</div>
   </div>
@@ -322,6 +358,20 @@
       <button class="map-btn" onclick="gameZoomOut()">−</button>
       <button class="map-btn" onclick="gameFollowMe()" id="followBtn">📍</button>
     </div>
+  </div>
+
+  <!-- 깃발 액션 버튼 영역 -->
+  <div class="flag-action-area" id="flagActionArea" style="display:none;">
+    <div class="flag-proximity" id="flagProximity"></div>
+    <button class="flag-action-btn flag-grab-btn" id="flagGrabBtn" style="display:none;" onclick="grabFlag()">
+      🚩 깃발 획득!
+    </button>
+    <button class="flag-action-btn flag-drop-btn" id="flagDropBtn" style="display:none;" onclick="dropFlag()">
+      ⬇️ 버리기
+    </button>
+    <button class="flag-action-btn flag-score-btn" id="flagScoreBtn" style="display:none;" onclick="scoreFlag()">
+      🏆 여기에 내려놓기! (득점)
+    </button>
   </div>
 
   <div class="game-hud" id="gameHud">
@@ -340,7 +390,7 @@
   </div>
 </div>
 
-<!-- ===== 결과 ===== -->
+<!-- 결과 -->
 <div id="resultOverlay" class="result-overlay" style="display:none;">
   <div class="result-card">
     <div class="trophy" id="resultEmoji">🏆</div>
@@ -348,13 +398,11 @@
     <div class="final-score" id="resultScore"></div>
     <div id="resultDetail" style="margin-top:12px;font-size:13px;color:#888;"></div>
     <button onclick="leaveGame()" style="width:100%;padding:14px;margin-top:20px;
-      border-radius:12px;font-size:16px;font-weight:700;background:#6c5ce7;border:none;color:#fff;">
-      나가기
-    </button>
+      border-radius:12px;font-size:16px;font-weight:700;background:#6c5ce7;border:none;color:#fff;">나가기</button>
   </div>
 </div>
 
-<!-- ===== 탈락 ===== -->
+<!-- 탈락 -->
 <div id="eliminatedOverlay" class="eliminated-overlay" style="display:none;">
   <div class="elim-icon">💀</div>
   <div class="elim-text">탈락!</div>
@@ -368,44 +416,30 @@
 <script src="firebase-config.js"></script>
 <script src="common.js"></script>
 <script>
-// ===== 상태 =====
 var currentScreen = 'join';
-var gameId = null;
-var gameRef = null;
-var gameData = null;
-var myPlayerId = null;
-var myPlayerName = '';
-var myPlayerEmoji = '🎮';
+var gameId = null, gameRef = null, gameData = null;
+var myPlayerId = null, myPlayerName = '', myPlayerEmoji = '🎮';
 var isHost = false;
-var gameMap = null;
-var zoneMap = null;
+var gameMap = null, zoneMap = null;
 var followMode = true;
 var myLat = null, myLng = null;
-var watchId = null;
-var timerInterval = null;
-var gameMarkers = {};
-var zonePolygons = [];
-var dangerPolygons = [];
-var gridOverlays = {};
-var flagMarkers = {};
+var watchId = null, timerInterval = null;
+var gameMarkers = {}, zonePolygons = [], gridOverlays = {}, flagMarkers = {};
+var myWarnings = 0;
+var holdingFlagId = null;
+var nearFlagId = null;
+var lastWarnTime = 0;
 
-// 구역 설정용
 var drawMode = 'safe';
-var drawPoints = { safe: [], danger: [], flagRed: null, flagBlue: null };
-var drawPolyline = null;
+var drawPoints = { safe: [], danger: [], baseRed: null, baseBlue: null, flags: [] };
 var drawMarkers = [];
-var dangerZones = [];
-var dangerDrawMarkers = [];
 
-// ===== 초기화 =====
 initFirebaseSync();
 
 var urlParams = new URLSearchParams(location.search);
 var urlCode = urlParams.get('code');
 var urlChildId = urlParams.get('child');
-if (urlCode) {
-  document.getElementById('joinCode').value = urlCode.toUpperCase();
-}
+if (urlCode) document.getElementById('joinCode').value = urlCode.toUpperCase();
 
 onDataReady(function() {
   renderChildSelect();
@@ -414,43 +448,35 @@ onDataReady(function() {
     var ch = getChildren().find(function(c) { return c.id === urlChildId; });
     if (ch) { myPlayerName = ch.name; myPlayerEmoji = ch.emoji || '🎮'; }
   }
-  if (urlCode && myPlayerId) {
-    joinGame();
-  }
+  if (urlCode && myPlayerId) joinGame();
 });
 
 function renderChildSelect() {
   var children = getChildren();
   var parents = getParents();
   var el = document.getElementById('joinChildSelect');
-  if (!children.length && !parents.length) {
-    el.style.display = 'none';
-    return;
-  }
+  if (!children.length && !parents.length) { el.style.display = 'none'; return; }
   el.style.display = 'block';
   var html = '<div style="font-size:12px;color:#888;margin-bottom:6px;">누구로 참가?</div><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">';
   children.forEach(function(c) {
-    html += '<button onclick="selectPlayer(\'' + c.id + '\',\'' + (c.name||'') + '\',\'' + (c.emoji||'🎮') + '\',\'child\')" '
+    html += '<button onclick="selectPlayer(\'' + c.id + '\',\'' + (c.name||'') + '\',\'' + (c.emoji||'🎮') + '\')" '
       + 'class="zone-btn" data-pid="' + c.id + '">' + (c.emoji||'🎮') + ' ' + c.name + '</button>';
   });
   parents.forEach(function(p) {
-    html += '<button onclick="selectPlayer(\'' + p.id + '\',\'' + (p.name||'') + '\',\'👨\',\'parent\')" '
-      + 'class="zone-btn" data-pid="' + p.id + '">' + '👨 ' + p.name + '</button>';
+    html += '<button onclick="selectPlayer(\'' + p.id + '\',\'' + (p.name||'') + '\',\'👨\')" '
+      + 'class="zone-btn" data-pid="' + p.id + '">👨 ' + p.name + '</button>';
   });
   html += '</div>';
   el.innerHTML = html;
 }
 
-function selectPlayer(id, name, emoji, role) {
-  myPlayerId = id;
-  myPlayerName = name;
-  myPlayerEmoji = emoji;
+function selectPlayer(id, name, emoji) {
+  myPlayerId = id; myPlayerName = name; myPlayerEmoji = emoji;
   document.querySelectorAll('#joinChildSelect .zone-btn').forEach(function(btn) {
     btn.classList.toggle('active', btn.getAttribute('data-pid') === id);
   });
 }
 
-// ===== 화면 전환 =====
 function showScreen(name) {
   currentScreen = name;
   ['joinScreen','createScreen','lobbyScreen','zoneScreen','gameScreen'].forEach(function(id) {
@@ -458,26 +484,30 @@ function showScreen(name) {
   });
   document.getElementById(name + 'Screen').style.display = '';
 }
-
 function showCreateGame() { showScreen('create'); }
 function hideCreateGame() { showScreen('join'); }
 
-// ===== 게임 타입 선택 =====
+// ===== 게임 타입 =====
 var selectedGameType = 'flag';
 function selectGameType(type) {
   selectedGameType = type;
   document.getElementById('typeFlag').classList.toggle('active', type === 'flag');
+  document.getElementById('typeFlagCollect').classList.toggle('active', type === 'flagCollect');
   document.getElementById('typeTerritory').classList.toggle('active', type === 'territory');
-  document.getElementById('gridSizeSel').closest('label').style.display = type === 'territory' ? '' : 'none';
-  document.getElementById('gridSizeSel').style.display = type === 'territory' ? '' : 'none';
+  document.getElementById('gridSizeRow').style.display = type === 'territory' ? '' : 'none';
+  document.getElementById('flagCountRow').style.display = type === 'flagCollect' ? '' : 'none';
+
+  var descs = {
+    flag: '상대 진영의 깃발을 뺏어서 우리 진영으로 가져오면 득점!',
+    flagCollect: '맵에 흩어진 깃발을 찾아가서 획득 → 자기 진영에 가져다 놓으면 득점!',
+    territory: '걸어다니면서 격자 칸을 칠해! 더 많은 칸을 가진 팀이 승리!'
+  };
+  document.getElementById('flagDesc').textContent = descs[type];
 }
 
 // ===== 게임 생성 =====
 function createGame() {
-  if (!myPlayerId) {
-    alert('먼저 참가자를 선택하세요');
-    return;
-  }
+  if (!myPlayerId) { alert('먼저 참가자를 선택하세요'); return; }
   var code = generateGameCode();
   gameId = uid();
   isHost = true;
@@ -488,24 +518,19 @@ function createGame() {
     status: 'waiting',
     host: myPlayerId,
     timeLimit: parseInt(document.getElementById('timeLimitSel').value),
+    maxWarnings: parseInt(document.getElementById('maxWarnSel').value),
     gridSize: parseInt(document.getElementById('gridSizeSel').value),
+    flagCount: parseInt(document.getElementById('flagCountSel').value),
     createdAt: Date.now(),
-    safeZone: null,
-    dangerZones: null,
-    flags: null,
+    safeZone: null, dangerZones: null,
     scores: { red: 0, blue: 0 }
   };
 
   fbDb.ref('/games/' + gameId).set(data);
   fbDb.ref('/games/' + gameId + '/players/' + myPlayerId).set({
-    name: myPlayerName,
-    emoji: myPlayerEmoji,
-    team: 'red',
-    ready: true,
-    eliminated: false,
-    isHost: true
+    name: myPlayerName, emoji: myPlayerEmoji, team: 'red',
+    ready: true, eliminated: false, isHost: true, warnings: 0
   });
-
   subscribeGame();
   showScreen('lobby');
 }
@@ -517,53 +542,30 @@ function generateGameCode() {
   return code;
 }
 
-// ===== 게임 참가 =====
+// ===== 참가 =====
 function joinGame() {
   var code = document.getElementById('joinCode').value.trim().toUpperCase();
-  if (code.length !== 4) {
-    document.getElementById('joinError').textContent = '4자리 코드를 입력하세요';
-    return;
-  }
-  if (!myPlayerId) {
-    document.getElementById('joinError').textContent = '참가자를 선택하세요';
-    return;
-  }
+  if (code.length !== 4) { document.getElementById('joinError').textContent = '4자리 코드를 입력하세요'; return; }
+  if (!myPlayerId) { document.getElementById('joinError').textContent = '참가자를 선택하세요'; return; }
 
   fbDb.ref('/games').orderByChild('code').equalTo(code).once('value', function(snap) {
     var games = snap.val();
-    if (!games) {
-      document.getElementById('joinError').textContent = '방을 찾을 수 없습니다';
-      return;
-    }
+    if (!games) { document.getElementById('joinError').textContent = '방을 찾을 수 없습니다'; return; }
     var ids = Object.keys(games);
     var found = null;
     for (var i = 0; i < ids.length; i++) {
-      if (games[ids[i]].status === 'waiting' || games[ids[i]].status === 'zones') {
-        found = ids[i];
-        break;
-      }
+      if (games[ids[i]].status === 'waiting' || games[ids[i]].status === 'zones') { found = ids[i]; break; }
     }
-    if (!found) {
-      document.getElementById('joinError').textContent = '참가할 수 있는 방이 없습니다';
-      return;
-    }
+    if (!found) { document.getElementById('joinError').textContent = '참가할 수 있는 방이 없습니다'; return; }
 
-    gameId = found;
-    isHost = false;
-
+    gameId = found; isHost = false;
     var players = games[found].players || {};
-    var count = Object.keys(players).length;
-    var team = count % 2 === 0 ? 'red' : 'blue';
+    var team = Object.keys(players).length % 2 === 0 ? 'red' : 'blue';
 
     fbDb.ref('/games/' + gameId + '/players/' + myPlayerId).set({
-      name: myPlayerName,
-      emoji: myPlayerEmoji,
-      team: team,
-      ready: false,
-      eliminated: false,
-      isHost: false
+      name: myPlayerName, emoji: myPlayerEmoji, team: team,
+      ready: false, eliminated: false, isHost: false, warnings: 0
     });
-
     subscribeGame();
     showScreen('lobby');
   });
@@ -582,66 +584,51 @@ function subscribeGame() {
 
 function onGameUpdate() {
   if (!gameData) return;
-
   if (gameData.status === 'waiting' || gameData.status === 'zones') {
-    if (currentScreen !== 'lobby' && currentScreen !== 'zone') {
-      showScreen('lobby');
-    }
+    if (currentScreen !== 'lobby' && currentScreen !== 'zone') showScreen('lobby');
     renderLobby();
   }
-
-  if (gameData.status === 'countdown') {
-    showCountdown();
-  }
-
+  if (gameData.status === 'countdown') showCountdown();
   if (gameData.status === 'playing') {
-    if (currentScreen !== 'game') {
-      startGamePlay();
-    }
+    if (currentScreen !== 'game') startGamePlay();
     updateGameState();
   }
-
-  if (gameData.status === 'finished') {
-    showResults();
-  }
+  if (gameData.status === 'finished') showResults();
 }
 
-// ===== 로비 렌더 =====
+// ===== 로비 =====
 function renderLobby() {
   document.getElementById('lobbyCode').textContent = gameData.code;
-  var typeLabels = { flag: '🚩 깃발뺏기', territory: '🗺️ 땅따먹기' };
+  var typeLabels = { flag: '🚩 깃발뺏기 (클래식)', flagCollect: '🏴 깃발 모으기', territory: '🗺️ 땅따먹기' };
   document.getElementById('lobbyGameType').textContent = typeLabels[gameData.type] || gameData.type;
+
+  var maxW = gameData.maxWarnings || 0;
+  var settings = '⏱️ ' + Math.floor(gameData.timeLimit/60) + '분';
+  settings += maxW > 0 ? '  ⚠️ ' + maxW + '회 경고 후 탈락' : '  💀 즉시 탈락';
+  document.getElementById('lobbySettings').textContent = settings;
 
   var players = gameData.players || {};
   var pids = Object.keys(players);
   var grid = document.getElementById('playerGrid');
   var html = '';
-
-  var redPlayers = pids.filter(function(id) { return players[id].team === 'red'; });
-  var bluePlayers = pids.filter(function(id) { return players[id].team === 'blue'; });
-  var maxSlots = Math.max(redPlayers.length, bluePlayers.length, 2);
+  var redP = pids.filter(function(id) { return players[id].team === 'red'; });
+  var blueP = pids.filter(function(id) { return players[id].team === 'blue'; });
+  var maxSlots = Math.max(redP.length, blueP.length, 2);
 
   for (var i = 0; i < maxSlots; i++) {
-    var rp = redPlayers[i] ? players[redPlayers[i]] : null;
-    var bp = bluePlayers[i] ? players[bluePlayers[i]] : null;
-
-    if (rp) {
-      html += '<div class="player-slot filled' + (rp.ready ? ' ready' : '') + '" style="border-color:#e74c3c;">'
-        + '<div class="slot-emoji">' + (rp.emoji || '🎮') + '</div>'
-        + '<div class="slot-name">' + rp.name + '</div>'
-        + '<div class="slot-team" style="color:#e74c3c;">🔴 빨강' + (rp.ready ? ' ✅' : '') + '</div></div>';
-    } else {
-      html += '<div class="player-slot"><span style="color:#ccc;">🔴 빈자리</span></div>';
-    }
-
-    if (bp) {
-      html += '<div class="player-slot filled' + (bp.ready ? ' ready' : '') + '" style="border-color:#3498db;">'
-        + '<div class="slot-emoji">' + (bp.emoji || '🎮') + '</div>'
-        + '<div class="slot-name">' + bp.name + '</div>'
-        + '<div class="slot-team" style="color:#3498db;">🔵 파랑' + (bp.ready ? ' ✅' : '') + '</div></div>';
-    } else {
-      html += '<div class="player-slot"><span style="color:#ccc;">🔵 빈자리</span></div>';
-    }
+    [redP[i], blueP[i]].forEach(function(pid, ti) {
+      var p = pid ? players[pid] : null;
+      var tc = ti === 0 ? '#e74c3c' : '#3498db';
+      var tl = ti === 0 ? '🔴 빨강' : '🔵 파랑';
+      if (p) {
+        html += '<div class="player-slot filled' + (p.ready ? ' ready' : '') + '" style="border-color:' + tc + ';">'
+          + '<div class="slot-emoji">' + (p.emoji || '🎮') + '</div>'
+          + '<div class="slot-name">' + p.name + '</div>'
+          + '<div class="slot-team" style="color:' + tc + ';">' + tl + (p.ready ? ' ✅' : '') + '</div></div>';
+      } else {
+        html += '<div class="player-slot"><span style="color:#ccc;">' + tl + ' 빈자리</span></div>';
+      }
+    });
   }
   grid.innerHTML = html;
 
@@ -651,17 +638,11 @@ function renderLobby() {
   if (!isHost) {
     var me = players[myPlayerId];
     var btn = document.getElementById('readyBtn');
-    if (me && me.ready) {
-      btn.className = 'ready-btn is-ready';
-      btn.textContent = '✅ 준비 완료!';
-    } else {
-      btn.className = 'ready-btn not-ready';
-      btn.textContent = '준비';
-    }
+    if (me && me.ready) { btn.className = 'ready-btn is-ready'; btn.textContent = '✅ 준비 완료!'; }
+    else { btn.className = 'ready-btn not-ready'; btn.textContent = '준비'; }
   }
 }
 
-// ===== 팀 관리 =====
 function shuffleTeams() {
   var players = gameData.players || {};
   var pids = Object.keys(players);
@@ -670,25 +651,18 @@ function shuffleTeams() {
     var t = pids[i]; pids[i] = pids[j]; pids[j] = t;
   }
   var updates = {};
-  pids.forEach(function(id, idx) {
-    updates['/games/' + gameId + '/players/' + id + '/team'] = idx % 2 === 0 ? 'red' : 'blue';
-  });
+  pids.forEach(function(id, idx) { updates['/games/' + gameId + '/players/' + id + '/team'] = idx % 2 === 0 ? 'red' : 'blue'; });
   fbDb.ref().update(updates);
 }
-
 function balanceTeams() {
   var players = gameData.players || {};
   var pids = Object.keys(players);
   var updates = {};
-  pids.forEach(function(id, idx) {
-    updates['/games/' + gameId + '/players/' + id + '/team'] = idx % 2 === 0 ? 'red' : 'blue';
-  });
+  pids.forEach(function(id, idx) { updates['/games/' + gameId + '/players/' + id + '/team'] = idx % 2 === 0 ? 'red' : 'blue'; });
   fbDb.ref().update(updates);
 }
-
 function toggleReady() {
-  var players = gameData.players || {};
-  var me = players[myPlayerId];
+  var me = (gameData.players || {})[myPlayerId];
   if (!me) return;
   fbDb.ref('/games/' + gameId + '/players/' + myPlayerId + '/ready').set(!me.ready);
 }
@@ -697,6 +671,21 @@ function toggleReady() {
 function goToZoneSetup() {
   showScreen('zone');
   gameRef.update({ status: 'zones' });
+
+  var ctrl = document.getElementById('zoneControls');
+  var extraHtml = '';
+  if (gameData.type === 'flag') {
+    extraHtml = '<button class="zone-btn" id="zoneBaseRedBtn" onclick="setDrawMode(\'baseRed\')">🔴 빨강 진영</button>'
+      + '<button class="zone-btn" id="zoneBaseBlueBtn" onclick="setDrawMode(\'baseBlue\')">🔵 파랑 진영</button>';
+  } else if (gameData.type === 'flagCollect') {
+    extraHtml = '<button class="zone-btn" id="zoneBaseRedBtn" onclick="setDrawMode(\'baseRed\')">🔴 빨강 진영</button>'
+      + '<button class="zone-btn" id="zoneBaseBlueBtn" onclick="setDrawMode(\'baseBlue\')">🔵 파랑 진영</button>'
+      + '<button class="zone-btn" id="zoneFlagBtn" onclick="setDrawMode(\'flag\')">🏴 깃발 배치</button>';
+  }
+  ctrl.innerHTML = '<button class="zone-btn safe-active" id="zoneSafeBtn" onclick="setDrawMode(\'safe\')">✅ 안전 구역</button>'
+    + '<button class="zone-btn" id="zoneDangerBtn" onclick="setDrawMode(\'danger\')">⛔ 위험 구역</button>'
+    + extraHtml;
+
   setTimeout(initZoneMap, 200);
 }
 
@@ -707,79 +696,60 @@ function backToLobby() {
 
 function initZoneMap() {
   if (zoneMap) return;
-
-  if (gameData.type === 'flag') {
-    document.getElementById('zoneFlagBtns').style.display = '';
-  }
-
   var center = new kakao.maps.LatLng(35.35, 126.42);
-  zoneMap = new kakao.maps.Map(document.getElementById('zoneMap'), {
-    center: center, level: 4
-  });
-
+  zoneMap = new kakao.maps.Map(document.getElementById('zoneMap'), { center: center, level: 4 });
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(function(pos) {
       zoneMap.setCenter(new kakao.maps.LatLng(pos.coords.latitude, pos.coords.longitude));
     });
   }
-
   kakao.maps.event.addListener(zoneMap, 'click', function(e) {
-    var lat = e.latLng.getLat();
-    var lng = e.latLng.getLng();
-    addZonePoint(lat, lng);
+    addZonePoint(e.latLng.getLat(), e.latLng.getLng());
   });
 }
 
 function setDrawMode(mode) {
   drawMode = mode;
-  ['zoneSafeBtn','zoneDangerBtn','zoneFlagRedBtn','zoneFlagBlueBtn'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (!el) return;
-    el.className = 'zone-btn';
-  });
-  var btnMap = { safe:'zoneSafeBtn', danger:'zoneDangerBtn', flagRed:'zoneFlagRedBtn', flagBlue:'zoneFlagBlueBtn' };
-  var clsMap = { safe:'safe-active', danger:'danger-active', flagRed:'active', flagBlue:'active' };
+  document.querySelectorAll('#zoneControls .zone-btn').forEach(function(b) { b.className = 'zone-btn'; });
+  var btnMap = { safe:'zoneSafeBtn', danger:'zoneDangerBtn', baseRed:'zoneBaseRedBtn', baseBlue:'zoneBaseBlueBtn', flag:'zoneFlagBtn' };
+  var clsMap = { safe:'safe-active', danger:'danger-active', baseRed:'active', baseBlue:'active', flag:'active' };
   var btn = document.getElementById(btnMap[mode]);
-  if (btn) btn.classList.add(clsMap[mode]);
+  if (btn) btn.classList.add(clsMap[mode] || 'active');
 
   var hints = {
     safe: '지도를 눌러 안전 구역 꼭짓점을 찍으세요 (최소 3개)',
     danger: '지도를 눌러 위험 구역 꼭짓점을 찍으세요',
-    flagRed: '지도를 눌러 빨강 팀 깃발 위치를 찍으세요',
-    flagBlue: '지도를 눌러 파랑 팀 깃발 위치를 찍으세요'
+    baseRed: '지도를 눌러 빨강 팀 진영 위치를 찍으세요',
+    baseBlue: '지도를 눌러 파랑 팀 진영 위치를 찍으세요',
+    flag: '지도를 눌러 깃발 위치를 찍으세요 (여러 개 가능)'
   };
-  document.getElementById('drawHint').textContent = hints[mode];
+  document.getElementById('drawHint').textContent = hints[mode] || '';
 }
 
 function addZonePoint(lat, lng) {
-  if (drawMode === 'flagRed' || drawMode === 'flagBlue') {
-    var key = drawMode === 'flagRed' ? 'flagRed' : 'flagBlue';
-    drawPoints[key] = { lat: lat, lng: lng };
-    renderZoneOverlays();
-    return;
-  }
-
-  if (drawMode === 'safe') {
-    drawPoints.safe.push({ lat: lat, lng: lng });
-  } else if (drawMode === 'danger') {
-    drawPoints.danger.push({ lat: lat, lng: lng });
-  }
+  if (drawMode === 'baseRed') { drawPoints.baseRed = { lat: lat, lng: lng }; }
+  else if (drawMode === 'baseBlue') { drawPoints.baseBlue = { lat: lat, lng: lng }; }
+  else if (drawMode === 'flag') { drawPoints.flags.push({ lat: lat, lng: lng }); }
+  else if (drawMode === 'safe') { drawPoints.safe.push({ lat: lat, lng: lng }); }
+  else if (drawMode === 'danger') { drawPoints.danger.push({ lat: lat, lng: lng }); }
   renderZoneOverlays();
 }
 
 function undoZonePoint() {
   if (drawMode === 'safe' && drawPoints.safe.length) drawPoints.safe.pop();
   else if (drawMode === 'danger' && drawPoints.danger.length) drawPoints.danger.pop();
-  else if (drawMode === 'flagRed') drawPoints.flagRed = null;
-  else if (drawMode === 'flagBlue') drawPoints.flagBlue = null;
+  else if (drawMode === 'baseRed') drawPoints.baseRed = null;
+  else if (drawMode === 'baseBlue') drawPoints.baseBlue = null;
+  else if (drawMode === 'flag' && drawPoints.flags.length) drawPoints.flags.pop();
   renderZoneOverlays();
 }
 
 function clearCurrentZone() {
   if (drawMode === 'safe') drawPoints.safe = [];
   else if (drawMode === 'danger') drawPoints.danger = [];
-  else if (drawMode === 'flagRed') drawPoints.flagRed = null;
-  else if (drawMode === 'flagBlue') drawPoints.flagBlue = null;
+  else if (drawMode === 'baseRed') drawPoints.baseRed = null;
+  else if (drawMode === 'baseBlue') drawPoints.baseBlue = null;
+  else if (drawMode === 'flag') drawPoints.flags = [];
   renderZoneOverlays();
 }
 
@@ -791,76 +761,40 @@ function renderZoneOverlays() {
 
   if (drawPoints.safe.length >= 3) {
     var path = drawPoints.safe.map(function(p) { return new kakao.maps.LatLng(p.lat, p.lng); });
-    var poly = new kakao.maps.Polygon({
-      path: path,
-      strokeWeight: 3, strokeColor: '#27ae60', strokeOpacity: 0.8,
-      fillColor: '#27ae60', fillOpacity: 0.15
-    });
-    poly.setMap(zoneMap);
-    zonePolygons.push(poly);
+    var poly = new kakao.maps.Polygon({ path: path, strokeWeight:3, strokeColor:'#27ae60', strokeOpacity:0.8, fillColor:'#27ae60', fillOpacity:0.15 });
+    poly.setMap(zoneMap); zonePolygons.push(poly);
   }
-  drawPoints.safe.forEach(function(p, i) {
-    var m = new kakao.maps.Marker({
-      position: new kakao.maps.LatLng(p.lat, p.lng),
-      map: zoneMap,
-      image: pinMarkerImage('✅', '#27ae60')
-    });
-    drawMarkers.push(m);
+  drawPoints.safe.forEach(function(p) {
+    drawMarkers.push(new kakao.maps.Marker({ position:new kakao.maps.LatLng(p.lat, p.lng), map:zoneMap, image:pinMarkerImage('✅','#27ae60') }));
   });
 
   if (drawPoints.danger.length >= 3) {
-    var dpath = drawPoints.danger.map(function(p) { return new kakao.maps.LatLng(p.lat, p.lng); });
-    var dpoly = new kakao.maps.Polygon({
-      path: dpath,
-      strokeWeight: 3, strokeColor: '#e74c3c', strokeOpacity: 0.8,
-      fillColor: '#e74c3c', fillOpacity: 0.2
-    });
-    dpoly.setMap(zoneMap);
-    zonePolygons.push(dpoly);
+    var dp = drawPoints.danger.map(function(p) { return new kakao.maps.LatLng(p.lat, p.lng); });
+    var dpoly = new kakao.maps.Polygon({ path:dp, strokeWeight:3, strokeColor:'#e74c3c', strokeOpacity:0.8, fillColor:'#e74c3c', fillOpacity:0.2 });
+    dpoly.setMap(zoneMap); zonePolygons.push(dpoly);
   }
   drawPoints.danger.forEach(function(p) {
-    var m = new kakao.maps.Marker({
-      position: new kakao.maps.LatLng(p.lat, p.lng),
-      map: zoneMap,
-      image: pinMarkerImage('⛔', '#e74c3c')
-    });
-    drawMarkers.push(m);
+    drawMarkers.push(new kakao.maps.Marker({ position:new kakao.maps.LatLng(p.lat, p.lng), map:zoneMap, image:pinMarkerImage('⛔','#e74c3c') }));
   });
 
-  if (drawPoints.flagRed) {
-    var fm = new kakao.maps.Marker({
-      position: new kakao.maps.LatLng(drawPoints.flagRed.lat, drawPoints.flagRed.lng),
-      map: zoneMap,
-      image: pinMarkerImage('🚩', '#e74c3c')
-    });
-    drawMarkers.push(fm);
+  if (drawPoints.baseRed) {
+    drawMarkers.push(new kakao.maps.Marker({ position:new kakao.maps.LatLng(drawPoints.baseRed.lat, drawPoints.baseRed.lng), map:zoneMap, image:pinMarkerImage('🏠','#e74c3c') }));
   }
-  if (drawPoints.flagBlue) {
-    var fm2 = new kakao.maps.Marker({
-      position: new kakao.maps.LatLng(drawPoints.flagBlue.lat, drawPoints.flagBlue.lng),
-      map: zoneMap,
-      image: pinMarkerImage('🚩', '#3498db')
-    });
-    drawMarkers.push(fm2);
+  if (drawPoints.baseBlue) {
+    drawMarkers.push(new kakao.maps.Marker({ position:new kakao.maps.LatLng(drawPoints.baseBlue.lat, drawPoints.baseBlue.lng), map:zoneMap, image:pinMarkerImage('🏠','#3498db') }));
   }
+  drawPoints.flags.forEach(function(p, i) {
+    drawMarkers.push(new kakao.maps.Marker({ position:new kakao.maps.LatLng(p.lat, p.lng), map:zoneMap, image:pinMarkerImage('🏴','#2d3436') }));
+  });
 }
 
 function saveZonesAndStart() {
-  if (drawPoints.safe.length < 3) {
-    alert('안전 구역을 최소 3개 꼭짓점으로 그려주세요');
-    return;
-  }
-  if (gameData.type === 'flag') {
-    if (!drawPoints.flagRed || !drawPoints.flagBlue) {
-      alert('빨강/파랑 깃발 위치를 모두 찍어주세요');
-      return;
-    }
-  }
+  if (drawPoints.safe.length < 3) { alert('안전 구역을 최소 3개 꼭짓점으로 그려주세요'); return; }
 
-  var players = gameData.players || {};
-  var allReady = Object.keys(players).every(function(id) {
-    return players[id].ready || players[id].isHost;
-  });
+  if (gameData.type === 'flag' || gameData.type === 'flagCollect') {
+    if (!drawPoints.baseRed || !drawPoints.baseBlue) { alert('빨강/파랑 진영 위치를 모두 찍어주세요'); return; }
+  }
+  if (gameData.type === 'flagCollect' && drawPoints.flags.length < 1) { alert('깃발을 최소 1개 이상 배치하세요'); return; }
 
   var updates = {
     safeZone: drawPoints.safe,
@@ -870,14 +804,20 @@ function saveZonesAndStart() {
   };
 
   if (gameData.type === 'flag') {
-    updates.flags = {
-      red: drawPoints.flagRed,
-      blue: drawPoints.flagBlue
+    updates.bases = { red: drawPoints.baseRed, blue: drawPoints.baseBlue };
+    updates.flagState = {
+      red: { holder: null, atBase: true, lat: drawPoints.baseRed.lat, lng: drawPoints.baseRed.lng },
+      blue: { holder: null, atBase: true, lat: drawPoints.baseBlue.lat, lng: drawPoints.baseBlue.lng }
     };
-    updates['flagState'] = {
-      red: { holder: null, atBase: true, lat: drawPoints.flagRed.lat, lng: drawPoints.flagRed.lng },
-      blue: { holder: null, atBase: true, lat: drawPoints.flagBlue.lat, lng: drawPoints.flagBlue.lng }
-    };
+  }
+
+  if (gameData.type === 'flagCollect') {
+    updates.bases = { red: drawPoints.baseRed, blue: drawPoints.baseBlue };
+    var scatteredFlags = {};
+    drawPoints.flags.forEach(function(p, i) {
+      scatteredFlags['f' + i] = { lat: p.lat, lng: p.lng, holder: null, scoredBy: null, active: true };
+    });
+    updates.scatteredFlags = scatteredFlags;
   }
 
   gameRef.update(updates);
@@ -886,7 +826,6 @@ function saveZonesAndStart() {
 // ===== 카운트다운 =====
 function showCountdown() {
   if (document.getElementById('countdownOverlay')) return;
-
   var overlay = document.createElement('div');
   overlay.id = 'countdownOverlay';
   overlay.className = 'countdown-overlay';
@@ -904,9 +843,7 @@ function showCountdown() {
       try { navigator.vibrate([100,50,100,50,200]); } catch(e) {}
       setTimeout(function() {
         overlay.remove();
-        if (isHost) {
-          gameRef.update({ status: 'playing', startedAt: Date.now() });
-        }
+        if (isHost) gameRef.update({ status: 'playing', startedAt: Date.now() });
       }, 1000);
     }
   }
@@ -918,14 +855,24 @@ function startGamePlay() {
   showScreen('game');
   startGPS();
 
-  var typeLabels = { flag: '🚩 깃발뺏기', territory: '🗺️ 땅따먹기' };
+  var typeLabels = { flag:'🚩 깃발뺏기', flagCollect:'🏴 깃발 모으기', territory:'🗺️ 땅따먹기' };
   document.getElementById('gameTypeLabel').textContent = typeLabels[gameData.type] + ' ';
 
   var me = (gameData.players || {})[myPlayerId];
-  var badge = document.getElementById('myTeamBadge');
   if (me) {
+    var badge = document.getElementById('myTeamBadge');
     badge.textContent = me.team === 'red' ? '🔴 빨강' : '🔵 파랑';
     badge.className = 'team-badge ' + (me.team === 'red' ? 'team-red' : 'team-blue');
+  }
+
+  var maxW = gameData.maxWarnings || 0;
+  if (maxW > 0) {
+    document.getElementById('warnBadge').style.display = '';
+    document.getElementById('warnBadge').textContent = '⚠️ 0/' + maxW;
+  }
+
+  if (gameData.type === 'flag' || gameData.type === 'flagCollect') {
+    document.getElementById('flagActionArea').style.display = '';
   }
 
   setTimeout(initGameMap, 200);
@@ -936,59 +883,32 @@ function initGameMap() {
   if (gameMap) return;
   var center = new kakao.maps.LatLng(35.35, 126.42);
   if (gameData.safeZone && gameData.safeZone.length) {
-    var avg = gameData.safeZone.reduce(function(a, p) { return { lat: a.lat + p.lat, lng: a.lng + p.lng }; }, { lat:0, lng:0 });
+    var avg = gameData.safeZone.reduce(function(a, p) { return { lat:a.lat+p.lat, lng:a.lng+p.lng }; }, {lat:0,lng:0});
     center = new kakao.maps.LatLng(avg.lat / gameData.safeZone.length, avg.lng / gameData.safeZone.length);
   }
-
-  gameMap = new kakao.maps.Map(document.getElementById('gameMap'), {
-    center: center, level: 3
-  });
-
+  gameMap = new kakao.maps.Map(document.getElementById('gameMap'), { center:center, level:3 });
   drawGameZones();
 }
 
 function drawGameZones() {
   if (!gameMap || !gameData) return;
-
   if (gameData.safeZone && gameData.safeZone.length >= 3) {
     var path = gameData.safeZone.map(function(p) { return new kakao.maps.LatLng(p.lat, p.lng); });
-    var poly = new kakao.maps.Polygon({
-      path: path,
-      strokeWeight: 3, strokeColor: '#27ae60', strokeOpacity: 0.8, strokeStyle: 'dashed',
-      fillColor: '#27ae60', fillOpacity: 0.08
-    });
-    poly.setMap(gameMap);
+    new kakao.maps.Polygon({ path:path, strokeWeight:3, strokeColor:'#27ae60', strokeOpacity:0.8, strokeStyle:'dashed', fillColor:'#27ae60', fillOpacity:0.08 }).setMap(gameMap);
   }
-
   if (gameData.dangerZones) {
     gameData.dangerZones.forEach(function(zone) {
       if (zone.length < 3) return;
       var dp = zone.map(function(p) { return new kakao.maps.LatLng(p.lat, p.lng); });
-      var dpoly = new kakao.maps.Polygon({
-        path: dp,
-        strokeWeight: 2, strokeColor: '#e74c3c', strokeOpacity: 0.8,
-        fillColor: '#e74c3c', fillOpacity: 0.2
-      });
-      dpoly.setMap(gameMap);
+      new kakao.maps.Polygon({ path:dp, strokeWeight:2, strokeColor:'#e74c3c', strokeOpacity:0.8, fillColor:'#e74c3c', fillOpacity:0.2 }).setMap(gameMap);
     });
   }
-
-  if (gameData.type === 'flag' && gameData.flags) {
-    if (gameData.flags.red) {
-      var rm = new kakao.maps.Marker({
-        position: new kakao.maps.LatLng(gameData.flags.red.lat, gameData.flags.red.lng),
-        map: gameMap,
-        image: pinMarkerImage('🚩', '#e74c3c')
-      });
-      flagMarkers.red = rm;
+  if (gameData.bases) {
+    if (gameData.bases.red) {
+      new kakao.maps.Marker({ position:new kakao.maps.LatLng(gameData.bases.red.lat, gameData.bases.red.lng), map:gameMap, image:emojiMarkerImage('🏠','#e74c3c',40) });
     }
-    if (gameData.flags.blue) {
-      var bm = new kakao.maps.Marker({
-        position: new kakao.maps.LatLng(gameData.flags.blue.lat, gameData.flags.blue.lng),
-        map: gameMap,
-        image: pinMarkerImage('🚩', '#3498db')
-      });
-      flagMarkers.blue = bm;
+    if (gameData.bases.blue) {
+      new kakao.maps.Marker({ position:new kakao.maps.LatLng(gameData.bases.blue.lat, gameData.bases.blue.lng), map:gameMap, image:emojiMarkerImage('🏠','#3498db',40) });
     }
   }
 }
@@ -999,64 +919,69 @@ function startGPS() {
   watchId = navigator.geolocation.watchPosition(function(pos) {
     myLat = pos.coords.latitude;
     myLng = pos.coords.longitude;
-
-    fbDb.ref('/games/' + gameId + '/playerLocations/' + myPlayerId).set({
-      lat: myLat, lng: myLng, timestamp: Date.now()
-    });
-
-    if (followMode && gameMap) {
-      gameMap.setCenter(new kakao.maps.LatLng(myLat, myLng));
-    }
-
+    fbDb.ref('/games/' + gameId + '/playerLocations/' + myPlayerId).set({ lat:myLat, lng:myLng, timestamp:Date.now() });
+    if (followMode && gameMap) gameMap.setCenter(new kakao.maps.LatLng(myLat, myLng));
     checkZoneBounds();
-    if (gameData && gameData.type === 'flag') checkFlagInteraction();
+    if (gameData && (gameData.type === 'flag' || gameData.type === 'flagCollect')) updateFlagActions();
     if (gameData && gameData.type === 'territory') claimTerritoryCell();
-
-  }, function(err) {}, {
-    enableHighAccuracy: true, maximumAge: 3000, timeout: 10000
-  });
+  }, function(){}, { enableHighAccuracy:true, maximumAge:3000, timeout:10000 });
 }
 
 function gameZoomIn() { if (gameMap) gameMap.setLevel(gameMap.getLevel() - 1); }
 function gameZoomOut() { if (gameMap) gameMap.setLevel(gameMap.getLevel() + 1); }
-function gameFollowMe() {
-  followMode = true;
-  if (myLat && gameMap) gameMap.setCenter(new kakao.maps.LatLng(myLat, myLng));
-}
+function gameFollowMe() { followMode = true; if (myLat && gameMap) gameMap.setCenter(new kakao.maps.LatLng(myLat, myLng)); }
 
-// ===== 구역 체크 =====
+// ===== 경고 시스템 =====
 function checkZoneBounds() {
   if (!myLat || !gameData || gameData.status !== 'playing') return;
   var me = (gameData.players || {})[myPlayerId];
   if (!me || me.eliminated) return;
 
+  var inViolation = false;
+
   if (gameData.safeZone && gameData.safeZone.length >= 3) {
-    if (!isInsidePolygon(myLat, myLng, gameData.safeZone)) {
-      eliminate('안전 구역을 벗어났습니다!');
-      return;
-    }
+    if (!isInsidePolygon(myLat, myLng, gameData.safeZone)) { inViolation = true; addWarning('안전 구역을 벗어났습니다!'); }
   }
 
-  if (gameData.dangerZones) {
+  if (!inViolation && gameData.dangerZones) {
     for (var i = 0; i < gameData.dangerZones.length; i++) {
       var zone = gameData.dangerZones[i];
-      if (zone.length >= 3 && isInsidePolygon(myLat, myLng, zone)) {
-        eliminate('위험 구역에 진입했습니다!');
-        return;
-      }
+      if (zone.length >= 3 && isInsidePolygon(myLat, myLng, zone)) { inViolation = true; addWarning('위험 구역에 진입했습니다!'); break; }
     }
   }
 }
 
+function addWarning(reason) {
+  var now = Date.now();
+  if (now - lastWarnTime < 5000) return;
+  lastWarnTime = now;
+
+  var maxW = gameData.maxWarnings || 0;
+
+  if (maxW === 0) {
+    eliminate(reason);
+    return;
+  }
+
+  myWarnings++;
+  fbDb.ref('/games/' + gameId + '/players/' + myPlayerId + '/warnings').set(myWarnings);
+
+  if (myWarnings >= maxW) {
+    eliminate(reason + ' (경고 ' + myWarnings + '/' + maxW + ')');
+    return;
+  }
+
+  document.getElementById('warnBadge').textContent = '⚠️ ' + myWarnings + '/' + maxW;
+  showToast('⚠️ 경고 ' + myWarnings + '/' + maxW + ' — ' + reason);
+  try { navigator.vibrate([300, 100, 300]); } catch(e) {}
+}
+
 function isInsidePolygon(lat, lng, polygon) {
-  var inside = false;
-  var n = polygon.length;
+  var inside = false, n = polygon.length;
   for (var i = 0, j = n - 1; i < n; j = i++) {
     var yi = polygon[i].lat, xi = polygon[i].lng;
     var yj = polygon[j].lat, xj = polygon[j].lng;
-    if ((yi > lat) !== (yj > lat) && lng < (xj - xi) * (lat - yi) / (yj - yi) + xi) {
-      inside = !inside;
-    }
+    if ((yi > lat) !== (yj > lat) && lng < (xj - xi) * (lat - yi) / (yj - yi) + xi) inside = !inside;
   }
   return inside;
 }
@@ -1064,167 +989,295 @@ function isInsidePolygon(lat, lng, polygon) {
 function eliminate(reason) {
   fbDb.ref('/games/' + gameId + '/players/' + myPlayerId + '/eliminated').set(true);
   fbDb.ref('/games/' + gameId + '/players/' + myPlayerId + '/elimReason').set(reason);
+  if (holdingFlagId) dropFlagOnElim();
   document.getElementById('elimReason').textContent = reason;
   document.getElementById('eliminatedOverlay').style.display = 'flex';
+  document.getElementById('flagActionArea').style.display = 'none';
   try { navigator.vibrate([500, 200, 500]); } catch(e) {}
 }
 
-// ===== 깃발뺏기 로직 =====
-function checkFlagInteraction() {
-  if (!myLat || !gameData || !gameData.flagState) return;
-  var me = (gameData.players || {})[myPlayerId];
-  if (!me || me.eliminated) return;
-
-  var myTeam = me.team;
-  var enemyTeam = myTeam === 'red' ? 'blue' : 'red';
-  var enemyFlag = gameData.flagState[enemyTeam];
-  var myFlag = gameData.flagState[myTeam];
-
-  if (enemyFlag && !enemyFlag.holder && enemyFlag.lat && enemyFlag.lng) {
-    var d = distance(myLat, myLng, enemyFlag.lat, enemyFlag.lng);
-    if (d < 15) {
-      fbDb.ref('/games/' + gameId + '/flagState/' + enemyTeam).update({
-        holder: myPlayerId, atBase: false
-      });
-      showToast('🚩 상대 깃발을 뺏었다!');
-      try { navigator.vibrate([100, 50, 100]); } catch(e) {}
-    }
+function dropFlagOnElim() {
+  if (!holdingFlagId || !myLat) return;
+  if (gameData.type === 'flag') {
+    var me = (gameData.players || {})[myPlayerId];
+    var enemyTeam = me.team === 'red' ? 'blue' : 'red';
+    fbDb.ref('/games/' + gameId + '/flagState/' + enemyTeam).update({ holder:null, atBase:false, lat:myLat, lng:myLng });
+  } else if (gameData.type === 'flagCollect') {
+    fbDb.ref('/games/' + gameId + '/scatteredFlags/' + holdingFlagId).update({ holder:null, lat:myLat, lng:myLng });
   }
-
-  if (enemyFlag && enemyFlag.holder === myPlayerId) {
-    fbDb.ref('/games/' + gameId + '/flagState/' + enemyTeam).update({
-      lat: myLat, lng: myLng
-    });
-
-    if (myFlag && myFlag.atBase) {
-      var homeFlag = gameData.flags[myTeam];
-      var dHome = distance(myLat, myLng, homeFlag.lat, homeFlag.lng);
-      if (dHome < 15) {
-        var newScore = ((gameData.scores || {})[myTeam] || 0) + 1;
-        var updates = {};
-        updates['scores/' + myTeam] = newScore;
-        updates['flagState/' + enemyTeam] = {
-          holder: null, atBase: true,
-          lat: gameData.flags[enemyTeam].lat, lng: gameData.flags[enemyTeam].lng
-        };
-        gameRef.update(updates);
-        showToast('🎉 득점! ' + myTeam.toUpperCase() + ' ' + newScore + '점!');
-        try { navigator.vibrate([200, 100, 200, 100, 400]); } catch(e) {}
-      }
-    }
-  }
-
-  // 태그 (상대팀 근처 10m → 깃발 드롭)
-  var locs = gameData.playerLocations || {};
-  var players = gameData.players || {};
-  Object.keys(locs).forEach(function(pid) {
-    if (pid === myPlayerId) return;
-    var p = players[pid];
-    if (!p || p.team === myTeam || p.eliminated) return;
-    var loc = locs[pid];
-    if (!loc) return;
-    var d = distance(myLat, myLng, loc.lat, loc.lng);
-    if (d < 10) {
-      // 내가 깃발 들고 있고 적이 근처 → 드롭
-      if (enemyFlag && enemyFlag.holder === myPlayerId) {
-        fbDb.ref('/games/' + gameId + '/flagState/' + enemyTeam).update({
-          holder: null, atBase: false, lat: myLat, lng: myLng
-        });
-        showToast('💀 태그 당했다! 깃발을 놓쳤어!');
-        try { navigator.vibrate([500]); } catch(e) {}
-      }
-    }
-  });
+  holdingFlagId = null;
 }
 
-// ===== 땅따먹기 로직 =====
-function claimTerritoryCell() {
+// ===== 깃발 액션 버튼 시스템 =====
+function updateFlagActions() {
   if (!myLat || !gameData) return;
   var me = (gameData.players || {})[myPlayerId];
   if (!me || me.eliminated) return;
 
-  var gridSize = gameData.gridSize || 20;
-  var mPerDegLat = 111320;
-  var mPerDegLng = 111320 * Math.cos(myLat * Math.PI / 180);
+  var grabBtn = document.getElementById('flagGrabBtn');
+  var dropBtn = document.getElementById('flagDropBtn');
+  var scoreBtn = document.getElementById('flagScoreBtn');
+  var proxEl = document.getElementById('flagProximity');
 
-  var cellX = Math.floor(myLng * mPerDegLng / gridSize);
-  var cellY = Math.floor(myLat * mPerDegLat / gridSize);
-  var cellKey = cellX + '_' + cellY;
+  grabBtn.style.display = 'none';
+  dropBtn.style.display = 'none';
+  scoreBtn.style.display = 'none';
+  proxEl.textContent = '';
 
-  var existing = (gameData.grid || {})[cellKey];
-  if (existing && existing.team === me.team) return;
-
-  fbDb.ref('/games/' + gameId + '/grid/' + cellKey).set({
-    team: me.team,
-    claimedBy: myPlayerId,
-    timestamp: Date.now()
-  });
-
-  if (existing && existing.team !== me.team) {
-    showToast('⚔️ 상대 땅을 뺏었다!');
+  // 내가 이미 깃발을 들고 있는 경우
+  var amHolding = false;
+  if (gameData.type === 'flag') {
+    var enemyTeam = me.team === 'red' ? 'blue' : 'red';
+    var ef = (gameData.flagState || {})[enemyTeam];
+    if (ef && ef.holder === myPlayerId) {
+      amHolding = true;
+      holdingFlagId = enemyTeam;
+      var base = (gameData.bases || {})[me.team];
+      if (base) {
+        var dBase = distance(myLat, myLng, base.lat, base.lng);
+        if (dBase < 20) {
+          scoreBtn.style.display = '';
+          proxEl.textContent = '🏠 우리 진영 도착! (' + Math.round(dBase) + 'm)';
+        } else {
+          dropBtn.style.display = '';
+          proxEl.textContent = '🚩 깃발 운반 중 — 우리 진영까지 ' + Math.round(dBase) + 'm';
+        }
+      } else {
+        dropBtn.style.display = '';
+        proxEl.textContent = '🚩 깃발 운반 중';
+      }
+      fbDb.ref('/games/' + gameId + '/flagState/' + enemyTeam).update({ lat:myLat, lng:myLng });
+    }
   }
+
+  if (gameData.type === 'flagCollect') {
+    var sf = gameData.scatteredFlags || {};
+    var myHeldFlag = null;
+    Object.keys(sf).forEach(function(fid) {
+      if (sf[fid].holder === myPlayerId) myHeldFlag = fid;
+    });
+    if (myHeldFlag) {
+      amHolding = true;
+      holdingFlagId = myHeldFlag;
+      var base = (gameData.bases || {})[me.team];
+      if (base) {
+        var dBase = distance(myLat, myLng, base.lat, base.lng);
+        if (dBase < 20) {
+          scoreBtn.style.display = '';
+          proxEl.textContent = '🏠 우리 진영 도착! (' + Math.round(dBase) + 'm)';
+        } else {
+          dropBtn.style.display = '';
+          proxEl.textContent = '🏴 깃발 운반 중 — 우리 진영까지 ' + Math.round(dBase) + 'm';
+        }
+      } else {
+        dropBtn.style.display = '';
+      }
+    }
+  }
+
+  // 깃발을 안 들고 있으면 → 근처 깃발 찾기
+  if (!amHolding) {
+    holdingFlagId = null;
+    nearFlagId = null;
+    var closestDist = Infinity, closestId = null;
+
+    if (gameData.type === 'flag') {
+      var enemyTeam = me.team === 'red' ? 'blue' : 'red';
+      var ef = (gameData.flagState || {})[enemyTeam];
+      if (ef && !ef.holder && ef.lat) {
+        var d = distance(myLat, myLng, ef.lat, ef.lng);
+        if (d < closestDist) { closestDist = d; closestId = enemyTeam; }
+      }
+    }
+
+    if (gameData.type === 'flagCollect') {
+      var sf = gameData.scatteredFlags || {};
+      Object.keys(sf).forEach(function(fid) {
+        var f = sf[fid];
+        if (!f.active || f.scoredBy || f.holder) return;
+        var d = distance(myLat, myLng, f.lat, f.lng);
+        if (d < closestDist) { closestDist = d; closestId = fid; }
+      });
+    }
+
+    if (closestId !== null) {
+      nearFlagId = closestId;
+      if (closestDist < 20) {
+        grabBtn.style.display = '';
+        proxEl.textContent = '🚩 깃발이 바로 앞에! (' + Math.round(closestDist) + 'm)';
+      } else if (closestDist < 50) {
+        proxEl.textContent = '🔥 아주 가까워! (' + Math.round(closestDist) + 'm)';
+      } else if (closestDist < 100) {
+        proxEl.textContent = '📍 가까워지고 있어 (' + Math.round(closestDist) + 'm)';
+      } else {
+        proxEl.textContent = '';
+      }
+    }
+  }
+
+  // 태그 체크 (클래식 깃발뺏기: 적에게 태그당하면 드롭)
+  if (amHolding && gameData.type === 'flag') {
+    var locs = gameData.playerLocations || {};
+    var players = gameData.players || {};
+    Object.keys(locs).forEach(function(pid) {
+      if (pid === myPlayerId) return;
+      var p = players[pid]; if (!p || p.team === me.team || p.eliminated) return;
+      var loc = locs[pid]; if (!loc) return;
+      if (distance(myLat, myLng, loc.lat, loc.lng) < 10) {
+        dropFlag();
+        showToast('💀 태그 당했다! 깃발을 놓쳤어!');
+        try { navigator.vibrate([500]); } catch(e) {}
+      }
+    });
+  }
+}
+
+function grabFlag() {
+  if (!nearFlagId || !myLat) return;
+  var me = (gameData.players || {})[myPlayerId];
+  if (!me || me.eliminated) return;
+
+  if (gameData.type === 'flag') {
+    fbDb.ref('/games/' + gameId + '/flagState/' + nearFlagId).update({ holder:myPlayerId, atBase:false });
+    showToast('🚩 깃발을 잡았다! 우리 진영으로 가져가자!');
+  } else if (gameData.type === 'flagCollect') {
+    fbDb.ref('/games/' + gameId + '/scatteredFlags/' + nearFlagId).update({ holder:myPlayerId });
+    showToast('🏴 깃발 획득! 우리 진영으로!');
+  }
+
+  holdingFlagId = nearFlagId;
+  nearFlagId = null;
+  try { navigator.vibrate([100, 50, 100]); } catch(e) {}
+}
+
+function dropFlag() {
+  if (!holdingFlagId || !myLat) return;
+
+  if (gameData.type === 'flag') {
+    fbDb.ref('/games/' + gameId + '/flagState/' + holdingFlagId).update({ holder:null, atBase:false, lat:myLat, lng:myLng });
+    showToast('⬇️ 깃발을 내려놨다');
+  } else if (gameData.type === 'flagCollect') {
+    fbDb.ref('/games/' + gameId + '/scatteredFlags/' + holdingFlagId).update({ holder:null, lat:myLat, lng:myLng });
+    showToast('⬇️ 깃발을 내려놨다');
+  }
+  holdingFlagId = null;
+}
+
+function scoreFlag() {
+  if (!holdingFlagId || !myLat) return;
+  var me = (gameData.players || {})[myPlayerId];
+  if (!me) return;
+
+  var newScore = ((gameData.scores || {})[me.team] || 0) + 1;
+
+  if (gameData.type === 'flag') {
+    var enemyTeam = holdingFlagId;
+    var origBase = (gameData.bases || {})[enemyTeam];
+    var updates = {};
+    updates['scores/' + me.team] = newScore;
+    updates['flagState/' + enemyTeam] = {
+      holder: null, atBase: true,
+      lat: origBase ? origBase.lat : myLat,
+      lng: origBase ? origBase.lng : myLng
+    };
+    gameRef.update(updates);
+  } else if (gameData.type === 'flagCollect') {
+    var updates = {};
+    updates['scores/' + me.team] = newScore;
+    updates['scatteredFlags/' + holdingFlagId + '/scoredBy'] = me.team;
+    updates['scatteredFlags/' + holdingFlagId + '/holder'] = null;
+    updates['scatteredFlags/' + holdingFlagId + '/active'] = false;
+    gameRef.update(updates);
+  }
+
+  holdingFlagId = null;
+  showToast('🎉 득점! ' + (me.team === 'red' ? '🔴' : '🔵') + ' ' + newScore + '점!');
+  try { navigator.vibrate([200, 100, 200, 100, 400]); } catch(e) {}
+}
+
+// ===== 땅따먹기 =====
+function claimTerritoryCell() {
+  if (!myLat || !gameData) return;
+  var me = (gameData.players || {})[myPlayerId];
+  if (!me || me.eliminated) return;
+  var gridSize = gameData.gridSize || 20;
+  var mLat = 111320, mLng = 111320 * Math.cos(myLat * Math.PI / 180);
+  var cx = Math.floor(myLng * mLng / gridSize);
+  var cy = Math.floor(myLat * mLat / gridSize);
+  var key = cx + '_' + cy;
+  var existing = (gameData.grid || {})[key];
+  if (existing && existing.team === me.team) return;
+  fbDb.ref('/games/' + gameId + '/grid/' + key).set({ team:me.team, claimedBy:myPlayerId, timestamp:Date.now() });
+  if (existing && existing.team !== me.team) showToast('⚔️ 상대 땅을 뺏었다!');
 }
 
 // ===== 게임 상태 업데이트 =====
 function updateGameState() {
   if (!gameData || !gameMap) return;
-
   updatePlayerMarkers();
   updateScores();
-
-  if (gameData.type === 'flag') updateFlagMarkers();
+  updateFlagMarkersOnMap();
   if (gameData.type === 'territory') updateTerritoryGrid();
 }
 
 function updatePlayerMarkers() {
   var locs = gameData.playerLocations || {};
   var players = gameData.players || {};
-
   Object.keys(locs).forEach(function(pid) {
-    var loc = locs[pid];
-    var p = players[pid];
+    var loc = locs[pid], p = players[pid];
     if (!loc || !p) return;
-
     var pos = new kakao.maps.LatLng(loc.lat, loc.lng);
     var color = p.team === 'red' ? '#e74c3c' : '#3498db';
     if (p.eliminated) color = '#95a5a6';
-
-    if (gameMarkers[pid]) {
-      gameMarkers[pid].setPosition(pos);
-    } else {
-      var emoji = p.emoji || '🎮';
-      if (p.eliminated) emoji = '💀';
-      gameMarkers[pid] = new kakao.maps.Marker({
-        position: pos,
-        map: gameMap,
-        image: emojiMarkerImage(emoji, color, 36)
-      });
+    if (gameMarkers[pid]) { gameMarkers[pid].setPosition(pos); }
+    else {
+      var emoji = p.eliminated ? '💀' : (p.emoji || '🎮');
+      gameMarkers[pid] = new kakao.maps.Marker({ position:pos, map:gameMap, image:emojiMarkerImage(emoji, color, 36) });
     }
   });
 }
 
-function updateFlagMarkers() {
-  if (!gameData.flagState) return;
-  ['red', 'blue'].forEach(function(team) {
-    var fs = gameData.flagState[team];
-    if (!fs || !fs.lat) return;
-    var pos = new kakao.maps.LatLng(fs.lat, fs.lng);
-    if (flagMarkers[team]) {
-      flagMarkers[team].setPosition(pos);
-    }
-  });
+function updateFlagMarkersOnMap() {
+  if (gameData.type === 'flag' && gameData.flagState) {
+    ['red','blue'].forEach(function(team) {
+      var fs = gameData.flagState[team];
+      if (!fs || !fs.lat) return;
+      var pos = new kakao.maps.LatLng(fs.lat, fs.lng);
+      if (flagMarkers[team]) { flagMarkers[team].setPosition(pos); }
+      else { flagMarkers[team] = new kakao.maps.Marker({ position:pos, map:gameMap, image:pinMarkerImage('🚩', team==='red'?'#e74c3c':'#3498db') }); }
+    });
+  }
+  if (gameData.type === 'flagCollect') {
+    var sf = gameData.scatteredFlags || {};
+    Object.keys(sf).forEach(function(fid) {
+      var f = sf[fid];
+      if (!f.active || f.scoredBy) {
+        if (flagMarkers[fid]) { flagMarkers[fid].setMap(null); delete flagMarkers[fid]; }
+        return;
+      }
+      if (!f.lat) return;
+      var pos = new kakao.maps.LatLng(f.lat, f.lng);
+      var color = f.holder ? '#fdcb6e' : '#2d3436';
+      if (flagMarkers[fid]) { flagMarkers[fid].setPosition(pos); }
+      else { flagMarkers[fid] = new kakao.maps.Marker({ position:pos, map:gameMap, image:pinMarkerImage('🏴', color) }); }
+    });
+  }
 
   var me = (gameData.players || {})[myPlayerId];
   var msg = '';
-  if (me) {
-    var enemyTeam = me.team === 'red' ? 'blue' : 'red';
-    var ef = gameData.flagState[enemyTeam];
-    if (ef && ef.holder === myPlayerId) {
-      msg = '🚩 깃발을 들고 있다! 우리 진영으로 돌아가!';
-    } else if (ef && ef.holder) {
-      var holder = (gameData.players || {})[ef.holder];
-      msg = '🚩 ' + (holder ? holder.name : '누군가') + '이(가) 상대 깃발을 들고 있다!';
+  if (me && gameData.type === 'flag') {
+    var et = me.team === 'red' ? 'blue' : 'red';
+    var ef = (gameData.flagState || {})[et];
+    if (ef && ef.holder === myPlayerId) msg = '🚩 깃발 운반 중! 우리 진영으로!';
+    else if (ef && ef.holder) {
+      var h = (gameData.players || {})[ef.holder];
+      msg = (h ? h.name : '누군가') + '이(가) 깃발을 들고 있다!';
     }
+  }
+  if (gameData.type === 'flagCollect') {
+    var sf = gameData.scatteredFlags || {};
+    var remaining = Object.keys(sf).filter(function(k) { return sf[k].active && !sf[k].scoredBy; }).length;
+    msg = '남은 깃발: ' + remaining + '개';
   }
   document.getElementById('gameMessage').textContent = msg;
 }
@@ -1232,56 +1285,36 @@ function updateFlagMarkers() {
 function updateTerritoryGrid() {
   var grid = gameData.grid || {};
   var gridSize = gameData.gridSize || 20;
-  var mPerDegLat = 111320;
-  var mPerDegLng = 111320 * Math.cos((myLat || 35.35) * Math.PI / 180);
-  var dLat = gridSize / mPerDegLat;
-  var dLng = gridSize / mPerDegLng;
+  var mLat = 111320, mLng = 111320 * Math.cos((myLat || 35.35) * Math.PI / 180);
+  var dLat = gridSize / mLat, dLng = gridSize / mLng;
 
   Object.keys(grid).forEach(function(key) {
-    if (gridOverlays[key]) return;
+    var g = grid[key];
+    if (gridOverlays[key] && gridOverlays[key].team === g.team) return;
+    if (gridOverlays[key]) { gridOverlays[key].rect.setMap(null); delete gridOverlays[key]; }
     var parts = key.split('_');
-    var cx = parseInt(parts[0]);
-    var cy = parseInt(parts[1]);
-    var sw = new kakao.maps.LatLng(cy * dLat, cx * dLng);
-    var ne = new kakao.maps.LatLng((cy + 1) * dLat, (cx + 1) * dLng);
-
-    var color = grid[key].team === 'red' ? '#e74c3c' : '#3498db';
+    var cx = parseInt(parts[0]), cy = parseInt(parts[1]);
+    var color = g.team === 'red' ? '#e74c3c' : '#3498db';
     var rect = new kakao.maps.Rectangle({
-      bounds: new kakao.maps.LatLngBounds(sw, ne),
-      strokeWeight: 1, strokeColor: color, strokeOpacity: 0.5,
-      fillColor: color, fillOpacity: 0.35
+      bounds: new kakao.maps.LatLngBounds(new kakao.maps.LatLng(cy*dLat, cx*dLng), new kakao.maps.LatLng((cy+1)*dLat, (cx+1)*dLng)),
+      strokeWeight:1, strokeColor:color, strokeOpacity:0.5, fillColor:color, fillOpacity:0.35
     });
     rect.setMap(gameMap);
-    gridOverlays[key] = { rect: rect, team: grid[key].team };
+    gridOverlays[key] = { rect:rect, team:g.team };
   });
 
-  Object.keys(gridOverlays).forEach(function(key) {
-    if (grid[key] && grid[key].team !== gridOverlays[key].team) {
-      gridOverlays[key].rect.setMap(null);
-      delete gridOverlays[key];
-    }
-  });
-
-  var redCount = 0, blueCount = 0;
-  Object.keys(grid).forEach(function(k) {
-    if (grid[k].team === 'red') redCount++;
-    else blueCount++;
-  });
-  document.getElementById('gameMessage').textContent = '🔴 ' + redCount + '칸  vs  🔵 ' + blueCount + '칸';
+  var rc = 0, bc = 0;
+  Object.keys(grid).forEach(function(k) { if (grid[k].team === 'red') rc++; else bc++; });
+  document.getElementById('gameMessage').textContent = '🔴 ' + rc + '칸  vs  🔵 ' + bc + '칸';
 }
 
 function updateScores() {
-  var scores = gameData.scores || { red: 0, blue: 0 };
-
+  var scores = gameData.scores || { red:0, blue:0 };
   if (gameData.type === 'territory') {
     var grid = gameData.grid || {};
-    scores = { red: 0, blue: 0 };
-    Object.keys(grid).forEach(function(k) {
-      if (grid[k].team === 'red') scores.red++;
-      else scores.blue++;
-    });
+    scores = { red:0, blue:0 };
+    Object.keys(grid).forEach(function(k) { if (grid[k].team === 'red') scores.red++; else scores.blue++; });
   }
-
   document.getElementById('scoreRed').textContent = scores.red;
   document.getElementById('scoreBlue').textContent = scores.blue;
 }
@@ -1296,21 +1329,14 @@ function startTimer() {
     if (remaining <= 0) {
       clearInterval(timerInterval);
       document.getElementById('gameTimer').textContent = '00:00';
-      if (isHost) {
-        gameRef.update({ status: 'finished', finishedAt: Date.now() });
-      }
+      if (isHost) gameRef.update({ status:'finished', finishedAt:Date.now() });
       return;
     }
-    var m = Math.floor(remaining / 60);
-    var s = remaining % 60;
-    document.getElementById('gameTimer').textContent =
-      (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
-
-    if (remaining <= 10) {
-      document.getElementById('gameTimer').style.color = '#e74c3c';
-    } else if (remaining <= 60) {
-      document.getElementById('gameTimer').style.color = '#fdcb6e';
-    }
+    var m = Math.floor(remaining / 60), s = remaining % 60;
+    document.getElementById('gameTimer').textContent = (m<10?'0':'')+m+':'+(s<10?'0':'')+s;
+    if (remaining <= 10) document.getElementById('gameTimer').style.color = '#e74c3c';
+    else if (remaining <= 60) document.getElementById('gameTimer').style.color = '#fdcb6e';
+    else document.getElementById('gameTimer').style.color = '#fff';
   }, 1000);
 }
 
@@ -1319,14 +1345,11 @@ function showResults() {
   clearInterval(timerInterval);
   if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
 
-  var scores = gameData.scores || { red: 0, blue: 0 };
+  var scores = gameData.scores || { red:0, blue:0 };
   if (gameData.type === 'territory') {
     var grid = gameData.grid || {};
-    scores = { red: 0, blue: 0 };
-    Object.keys(grid).forEach(function(k) {
-      if (grid[k].team === 'red') scores.red++;
-      else scores.blue++;
-    });
+    scores = { red:0, blue:0 };
+    Object.keys(grid).forEach(function(k) { if (grid[k].team === 'red') scores.red++; else scores.blue++; });
   }
 
   var winner = scores.red > scores.blue ? 'red' : scores.blue > scores.red ? 'blue' : 'draw';
@@ -1344,34 +1367,28 @@ function showResults() {
     document.getElementById('resultEmoji').textContent = '😢';
     document.getElementById('resultTitle').textContent = '패배...';
   }
-
   document.getElementById('resultScore').textContent = '🔴 ' + scores.red + '  vs  🔵 ' + scores.blue;
 
   var players = gameData.players || {};
   var eliminated = Object.keys(players).filter(function(id) { return players[id].eliminated; });
-  if (eliminated.length) {
-    var detail = '💀 탈락: ' + eliminated.map(function(id) { return players[id].name; }).join(', ');
-    document.getElementById('resultDetail').textContent = detail;
-  }
+  var detail = '';
+  if (eliminated.length) detail = '💀 탈락: ' + eliminated.map(function(id) { return players[id].name + (players[id].warnings ? ' (경고'+players[id].warnings+')' : ''); }).join(', ');
+  document.getElementById('resultDetail').textContent = detail;
 
   document.getElementById('resultOverlay').style.display = 'flex';
   document.getElementById('eliminatedOverlay').style.display = 'none';
+  document.getElementById('flagActionArea').style.display = 'none';
 }
 
 function leaveGame() {
   if (gameRef) gameRef.off();
-  gameId = null;
-  gameData = null;
-  gameMap = null;
-  zoneMap = null;
-  gameMarkers = {};
-  gridOverlays = {};
-  flagMarkers = {};
+  gameId = null; gameData = null; gameMap = null; zoneMap = null;
+  gameMarkers = {}; gridOverlays = {}; flagMarkers = {};
+  holdingFlagId = null; nearFlagId = null; myWarnings = 0;
   document.getElementById('resultOverlay').style.display = 'none';
   showScreen('join');
 }
 
-// ===== 토스트 =====
 function showToast(msg) {
   var old = document.querySelector('.game-toast');
   if (old) old.remove();
