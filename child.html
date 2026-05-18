@@ -133,6 +133,12 @@
     <div class="my-pins-list" id="myPinsList"></div>
   </div>
 
+  <!-- 가족 위치 -->
+  <div class="card" id="familyLocCard" style="display:none;">
+    <h2>👨‍👩‍👧‍👦 가족 위치</h2>
+    <div id="familyLocList"></div>
+  </div>
+
   <!-- SOS -->
   <div class="card" id="sosCard" style="display:none;text-align:center;">
     <button class="sos-btn" onclick="sendSOS()">🆘 긴급 SOS</button>
@@ -255,9 +261,11 @@ function startTracking(child) {
 
   document.getElementById('childPinCard').style.display = '';
   document.getElementById('sosCard').style.display = '';
+  document.getElementById('familyLocCard').style.display = '';
 
   startGPS(child);
   renderMyPins();
+  renderFamilyList();
 }
 
 function startGPS(child) {
@@ -375,7 +383,7 @@ function startGPS(child) {
 // ──── 거점 표시 ────
 window.onDataChanged = function() {
   if (map && childId) renderPinsOnMap();
-  if (childId) renderMyPins();
+  if (childId) { renderMyPins(); renderFamilyList(); }
 };
 
 function renderPinsOnMap() {
@@ -642,6 +650,79 @@ function renderMyPins() {
   list.innerHTML = html;
 }
 function removeChildPin(pinId) { fbDb.ref('/childPins/' + pinId).remove(); }
+
+// ──── 가족 위치 리스트 ────
+function renderFamilyList() {
+  var html = '';
+  var locations = getLocations();
+  var plocs = getParentLocations();
+  var parents = getParents();
+  var children = getChildren();
+
+  // 부모님
+  parents.forEach(function(p) {
+    var pl = plocs[p.id];
+    var active = pl && pl.lat && pl.isActive && !isStale(pl.timestamp);
+    html += '<div style="display:flex;align-items:center;gap:8px;padding:8px;background:#f8f9fa;border-radius:8px;margin-bottom:6px;">'
+      + '<span style="font-size:22px;">👤</span>'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div style="font-weight:600;font-size:13px;">' + p.name + ' <span style="font-size:11px;color:#888;">(부모님)</span></div>'
+      + '<div style="font-size:12px;color:' + (active ? '#27ae60' : '#999') + ';">'
+      + (active ? '● 온라인 · ' + timeAgo(pl.timestamp) : '● 오프라인') + '</div></div>';
+    if (active) {
+      html += '<button onclick="focusFamily(' + pl.lat + ',' + pl.lng + ')" style="background:#8e44ad;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;">📍 보기</button>';
+    }
+    if (p.phone) {
+      html += '<a href="tel:' + p.phone + '" style="background:#27ae60;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:12px;text-decoration:none;display:inline-block;">📞</a>';
+    }
+    html += '</div>';
+  });
+
+  // 관리자 위치
+  var adminLoc = plocs['admin'];
+  if (adminLoc && adminLoc.lat && adminLoc.isActive && !isStale(adminLoc.timestamp)) {
+    html += '<div style="display:flex;align-items:center;gap:8px;padding:8px;background:#f8f9fa;border-radius:8px;margin-bottom:6px;">'
+      + '<span style="font-size:22px;">👤</span>'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div style="font-weight:600;font-size:13px;">관리자</div>'
+      + '<div style="font-size:12px;color:#27ae60;">● 온라인 · ' + timeAgo(adminLoc.timestamp) + '</div></div>'
+      + '<button onclick="focusFamily(' + adminLoc.lat + ',' + adminLoc.lng + ')" style="background:#8e44ad;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;">📍 보기</button>'
+      + '</div>';
+  }
+
+  // 다른 아이들
+  children.forEach(function(c) {
+    if (c.id === childId) return;
+    var loc = locations[c.id];
+    var active = loc && loc.lat && loc.isActive !== false && !isStale(loc.lastUpdate);
+    html += '<div style="display:flex;align-items:center;gap:8px;padding:8px;background:#f8f9fa;border-radius:8px;margin-bottom:6px;">'
+      + '<span style="font-size:22px;">' + (c.emoji || '📍') + '</span>'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div style="font-weight:600;font-size:13px;">' + c.name + '</div>'
+      + '<div style="font-size:12px;color:' + (active ? '#27ae60' : '#999') + ';">'
+      + (active ? '● 온라인 · ' + timeAgo(loc.lastUpdate) : '● 오프라인' + (loc && loc.lastUpdate ? ' · ' + timeAgo(loc.lastUpdate) : '')) + '</div></div>';
+    if (active) {
+      html += '<button onclick="focusFamily(' + loc.lat + ',' + loc.lng + ')" style="background:#3498db;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;">📍 보기</button>';
+    }
+    if (c.phone) {
+      html += '<a href="tel:' + c.phone + '" style="background:#27ae60;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:12px;text-decoration:none;display:inline-block;">📞</a>';
+    }
+    html += '</div>';
+  });
+
+  var el = document.getElementById('familyLocList');
+  if (!html) { el.innerHTML = '<div class="muted" style="text-align:center;padding:8px;font-size:12px;">아직 가족 위치 정보가 없어요.</div>'; return; }
+  el.innerHTML = html;
+}
+
+function focusFamily(lat, lng) {
+  if (!map) return;
+  followMode = false;
+  updateFollowBtn();
+  map.setCenter(new kakao.maps.LatLng(lat, lng));
+  map.setLevel(3);
+  document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
 
 // ──── 지도 타입 / 줌 / 따라가기 ────
 function setMapType(type) {
