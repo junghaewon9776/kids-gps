@@ -442,7 +442,7 @@ onDataReady(function() {
   if (saved) {
     try {
       var cred = JSON.parse(saved);
-      if (cred.ts && Date.now() - cred.ts < 3600000) {
+      if (cred.ts && Date.now() - cred.ts < 86400000) {
         autoLogin(cred.id, cred.pw);
       } else {
         localStorage.removeItem('kids_monitor_login');
