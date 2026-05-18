@@ -54,6 +54,7 @@
       display:flex;align-items:center;justify-content:center;
     }
     .chat-fab:active { transform:scale(0.92); }
+    .chat-fab:focus { outline:none; }
     .chat-fab .badge {
       position:absolute;top:-4px;right:-4px;
       background:#e74c3c;color:#fff;font-size:10px;font-weight:700;
@@ -344,7 +345,7 @@
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 3C6.48 3 2 6.58 2 11c0 2.8 1.8 5.27 4.56 6.75-.14.98-.68 3.35-.78 3.86-.12.62.23.61.48.45.2-.13 3.1-2.1 4.36-2.95.45.05.91.09 1.38.09 5.52 0 10-3.58 10-8C22 6.58 17.52 3 12 3z" fill="#3C1E1E"/></svg>
   <span class="badge" id="chatBadge"></span>
 </button>
-<div class="chat-popup" id="chatPopup">
+<div class="chat-popup" id="chatPopup" style="display:none;">
   <div class="chat-popup-header">
     <h3>💬 채팅</h3>
     <select id="chatTarget" onchange="loadChat()">
@@ -1557,7 +1558,7 @@ var chatInitialLoad = true;
 
 function toggleChatPopup() {
   chatOpen = !chatOpen;
-  document.getElementById('chatPopup').style.display = chatOpen ? '' : 'none';
+  document.getElementById('chatPopup').style.display = chatOpen ? 'block' : 'none';
   if (chatOpen) {
     document.getElementById('chatBadge').style.display = 'none';
     document.getElementById('chatBadge').textContent = '';
