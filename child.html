@@ -106,6 +106,7 @@
         <button class="map-btn" onclick="zoomOut()">−</button>
       </div>
       <div class="map-ctrl map-ctrl-bottom">
+        <button class="map-btn" style="width:auto;padding:0 12px;font-size:13px;font-weight:600;" onclick="fitAll()">전체 보기</button>
         <button class="map-btn" id="followBtn" style="width:auto;padding:0 12px;font-size:13px;font-weight:600;" onclick="toggleFollow()">🎯 따라가기</button>
       </div>
     </div>
@@ -439,6 +440,56 @@ function renderPinsOnMap() {
     pinMarkers.push(marker);
   });
 
+  // 다른 아이들 위치 표시
+  var allChildren = getChildren();
+  var locations = getLocations();
+  allChildren.forEach(function(c) {
+    if (c.id === childId) return;
+    var loc = locations[c.id];
+    if (!loc || !loc.lat) return;
+    var stale = isStale(loc.lastUpdate);
+    var color = stale ? '#bdc3c7' : (c.color || '#3498db');
+    var marker = new kakao.maps.Marker({
+      position: new kakao.maps.LatLng(loc.lat, loc.lng),
+      map: map, image: emojiMarkerImage(c.emoji || '📍', color, 32), zIndex: 4
+    });
+    var nameOvl = new kakao.maps.CustomOverlay({
+      position: new kakao.maps.LatLng(loc.lat, loc.lng),
+      content: '<div style="padding:1px 5px;background:' + color + ';color:#fff;border-radius:8px;font-size:10px;font-weight:600;white-space:nowrap;transform:translateY(4px);">'
+        + (c.emoji || '') + ' ' + c.name + '</div>',
+      yAnchor: 0, map: map, zIndex: 3
+    });
+    var statusText = stale ? '오프라인 · ' + timeAgo(loc.lastUpdate) : '온라인 · ' + timeAgo(loc.lastUpdate);
+    var iw = new kakao.maps.InfoWindow({
+      content: '<div style="padding:8px;font-size:12px;min-width:100px;">'
+        + '<b>' + (c.emoji||'') + ' ' + c.name + '</b>'
+        + '<div style="color:' + (stale ? '#e74c3c' : '#27ae60') + ';">● ' + statusText + '</div>'
+        + (c.phone ? '<div><a href="tel:' + c.phone + '" style="color:#3498db;">📞 ' + c.phone + '</a></div>' : '')
+        + '</div>',
+      removable: true
+    });
+    kakao.maps.event.addListener(marker, 'click', (function(m, i) {
+      return function() { toggleInfoWindow(i, m, map); };
+    })(marker, iw));
+    pinMarkers.push(marker);
+    pinMarkers.push(nameOvl);
+  });
+
+  // 부모 핑도 표시
+  getParentPins().forEach(function(pp) {
+    var marker = new kakao.maps.Marker({
+      position: new kakao.maps.LatLng(pp.lat, pp.lng),
+      map: map, image: pinMarkerImage('👤', '#8e44ad'), zIndex: 4
+    });
+    var iw = new kakao.maps.InfoWindow({
+      content: '<div style="padding:6px 10px;font-size:12px;white-space:nowrap;">'
+        + '<b>' + (pp.parentName||'부모님') + '</b>: ' + (pp.message||'')
+        + '<br><span style="color:#999;font-size:11px;">' + timeAgo(pp.timestamp) + '</span></div>'
+    });
+    kakao.maps.event.addListener(marker, 'click', function() { toggleInfoWindow(iw, marker, map); });
+    pinMarkers.push(marker);
+  });
+
   renderPinLegend();
 }
 
@@ -610,15 +661,40 @@ function setMapType(type) {
 function zoomIn() { if (map) map.setLevel(Math.max(1, map.getLevel() - 1)); }
 function zoomOut() { if (map) map.setLevel(Math.min(14, map.getLevel() + 1)); }
 
+function fitAll() {
+  if (!map) return;
+  var bounds = new kakao.maps.LatLngBounds();
+  var has = false;
+  if (currentLat && currentLng) { bounds.extend(new kakao.maps.LatLng(currentLat, currentLng)); has = true; }
+  var locs = getLocations();
+  getChildren().forEach(function(c) {
+    if (c.id === childId) return;
+    var l = locs[c.id];
+    if (l && l.lat) { bounds.extend(new kakao.maps.LatLng(l.lat, l.lng)); has = true; }
+  });
+  var plocs = getParentLocations();
+  Object.keys(plocs).forEach(function(k) {
+    var pl = plocs[k];
+    if (pl && pl.lat && pl.isActive) { bounds.extend(new kakao.maps.LatLng(pl.lat, pl.lng)); has = true; }
+  });
+  getPins().forEach(function(p) {
+    if (p.lat) { bounds.extend(new kakao.maps.LatLng(p.lat, p.lng)); has = true; }
+  });
+  if (has) { followMode = false; updateFollowBtn(); map.setBounds(bounds); }
+}
+
 function toggleFollow() {
   followMode = !followMode;
-  var btn = document.getElementById('followBtn');
-  btn.textContent = followMode ? '🎯 ON' : '🎯 따라가기';
-  btn.classList.toggle('gray', !followMode);
+  updateFollowBtn();
   if (followMode && currentLat && map) {
     map.setCenter(new kakao.maps.LatLng(currentLat, currentLng));
     map.setLevel(3);
   }
+}
+function updateFollowBtn() {
+  var btn = document.getElementById('followBtn');
+  btn.textContent = followMode ? '🎯 ON' : '🎯 따라가기';
+  btn.classList.toggle('gray', !followMode);
 }
 
 function addArrowMarker(lat1, lng1, lat2, lng2, color) {
