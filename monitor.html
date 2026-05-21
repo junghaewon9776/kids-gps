@@ -208,7 +208,7 @@
       <button onclick="setGpsInterval(10)">10초</button>
       <button onclick="setGpsInterval(15)" class="active">15초</button>
     </div>
-    <p class="muted" style="margin-top:6px;text-align:center;">짧을수록 실시간, 길수록 배터리 절약</p>
+    <p class="muted" style="margin-top:6px;text-align:center;">내 화면은 항상 실시간 · 다른 사람에게 보내는 간격</p>
   </div>
 
   <!-- 비밀번호 변경 안내 -->
@@ -484,7 +484,9 @@ var distanceLogs = {};
 var prevLocations = {};
 var parentShareActive = false;
 var parentWatchId = null;
-var myLat = null, myLng = null;
+var myLat = null, myLng = null, myAccuracy = null;
+var myLocMarker = null;
+var parentLastWrite = 0;
 var __followKey = null;
 var __followType = null;
 var geocoder = null;
@@ -1049,6 +1051,7 @@ function startParentShare() {
   var shareId = currentParentId || 'admin';
 
   parentShareActive = true;
+  parentLastWrite = 0;
   document.getElementById('shareLocBtn').textContent = '⏹ 위치 공유 중지';
   document.getElementById('shareLocBtn').className = 'share-loc-btn active';
   document.getElementById('parentShareStatus').style.display = '';
@@ -1057,19 +1060,37 @@ function startParentShare() {
     function(pos) {
       myLat = pos.coords.latitude;
       myLng = pos.coords.longitude;
-      var payload = {
-        lat: myLat,
-        lng: myLng,
-        accuracy: Math.round(pos.coords.accuracy),
-        timestamp: Date.now(),
-        isActive: true
-      };
-      fbDb.ref('/parentLocations/' + shareId).set(payload);
+      myAccuracy = pos.coords.accuracy;
+
+      // 내 화면은 매번 즉시 갱신 (1초급)
+      if (map) {
+        var latlng = new kakao.maps.LatLng(myLat, myLng);
+        if (!myLocMarker) {
+          myLocMarker = new kakao.maps.Marker({
+            position: latlng, map: map,
+            image: emojiMarkerImage('📍', '#e74c3c', 36)
+          });
+        } else {
+          myLocMarker.setPosition(latlng);
+        }
+      }
+
+      // Firebase 전송은 간격에 맞게 throttle
+      var now = Date.now();
+      var sendMs = (getConfig().gpsIntervalSec || 15) * 1000;
+      if (now - parentLastWrite >= sendMs) {
+        parentLastWrite = now;
+        fbDb.ref('/parentLocations/' + shareId).set({
+          lat: myLat, lng: myLng,
+          accuracy: Math.round(myAccuracy),
+          timestamp: now, isActive: true
+        });
+      }
     },
     function(err) {
       console.log('Parent GPS error:', err.message);
     },
-    { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
+    { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
   );
 
   requestWakeLock();
@@ -1085,6 +1106,7 @@ function stopParentShare() {
     navigator.geolocation.clearWatch(parentWatchId);
     parentWatchId = null;
   }
+  if (myLocMarker) { myLocMarker.setMap(null); myLocMarker = null; }
   var shareId = currentParentId || 'admin';
   fbDb.ref('/parentLocations/' + shareId).update({ isActive: false, timestamp: Date.now() });
   releaseWakeLock();

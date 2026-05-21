@@ -334,7 +334,7 @@ function startGPS(child) {
     + '<span id="statusText" style="font-size:14px;">위치 찾는 중...</span>'
     + '</div>'
     + '<div id="gpsInfo" style="font-size:11px;opacity:0.7;"></div>'
-    + '<div id="gpsIntervalLabel" style="font-size:11px;opacity:0.6;margin-top:2px;">⏱️ ' + (getConfig().gpsIntervalSec || 15) + '초 간격</div>'
+    + '<div id="gpsIntervalLabel" style="font-size:11px;opacity:0.6;margin-top:2px;">⏱️ 전송 ' + (getConfig().gpsIntervalSec || 15) + '초 간격 · 내 화면 실시간</div>'
     + '<div id="sendCount" style="font-size:11px;opacity:0.7;margin-top:2px;"></div>';
 
   document.getElementById('mapCard').style.display = '';
@@ -359,7 +359,7 @@ function startGPS(child) {
     if (v && v > 0) {
       intervalMs = v * 1000;
       var el = document.getElementById('gpsIntervalLabel');
-      if (el) el.textContent = v + '초 간격';
+      if (el) el.textContent = '⏱️ 전송 ' + v + '초 간격 · 내 화면 실시간';
     }
   });
 
@@ -429,7 +429,7 @@ function startGPS(child) {
       document.getElementById('statusText').textContent = '위치를 못 찾겠어요 😢';
       document.getElementById('gpsInfo').textContent = err.message;
     },
-    { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+    { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
   );
 
   requestWakeLock();
