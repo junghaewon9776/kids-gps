@@ -334,6 +334,7 @@ function startGPS(child) {
     + '<span id="statusText" style="font-size:14px;">위치 찾는 중...</span>'
     + '</div>'
     + '<div id="gpsInfo" style="font-size:11px;opacity:0.7;"></div>'
+    + '<div id="gpsIntervalLabel" style="font-size:11px;opacity:0.6;margin-top:2px;">⏱️ ' + (getConfig().gpsIntervalSec || 15) + '초 간격</div>'
     + '<div id="sendCount" style="font-size:11px;opacity:0.7;margin-top:2px;"></div>';
 
   document.getElementById('mapCard').style.display = '';
@@ -351,8 +352,16 @@ function startGPS(child) {
     renderPinsOnMap();
   });
 
-  var cfg = getConfig();
-  var intervalMs = (cfg.gpsIntervalSec || 15) * 1000;
+  var intervalMs = (getConfig().gpsIntervalSec || 15) * 1000;
+  // config 변경 시 간격 실시간 반영
+  firebase.database().ref('config/gpsIntervalSec').on('value', function(snap) {
+    var v = snap.val();
+    if (v && v > 0) {
+      intervalMs = v * 1000;
+      var el = document.getElementById('gpsIntervalLabel');
+      if (el) el.textContent = v + '초 간격';
+    }
+  });
 
   watchId = navigator.geolocation.watchPosition(
     function(pos) {
